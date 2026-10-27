@@ -47,6 +47,14 @@ def tracker_command(root,db,args):
         db.commit()
         print('Mapped',args.local_id,'=>',args.remote_key)
         return
+    if args.action=='sync':
+        changes=[]
+        for local,key in db.execute('SELECT local_id,remote_key FROM tracker_mappings ORDER BY local_id'):
+            data=_request('GET','issue/'+urllib.parse.quote(key,safe=''))
+            fields=data.get('fields',{})
+            changes.append({'local_id':local,'remote_key':key,'remote_status':(fields.get('status') or {}).get('name'),'remote_summary':fields.get('summary')})
+        print(json.dumps({'mode':'read-only','changes':changes},ensure_ascii=False,indent=2))
+        return
     if args.action=='pull':
         data=_request('GET','issue/'+urllib.parse.quote(args.remote_key,safe=''))
         fields=data.get('fields',{})
@@ -65,10 +73,19 @@ def tracker_command(root,db,args):
             print('Worklog already synchronized');return
         seconds=max(0,round((dt.datetime.fromisoformat(end)-dt.datetime.fromisoformat(start)).total_seconds()))
         if seconds<60:raise ValueError('Activity shorter than 60 seconds; not exported')
-        payload={'started':dt.datetime.fromisoformat(start).strftime('%Y-%m-%dT%H:%M:%S.000+0000'),'timeSpentSeconds':seconds,'comment':{'type':'doc','version':1,'content':[{'type':'paragraph','content':[{'type':'text','text':'AIFlow activity #'+str(args.activity_id)}]}]}}
+        payload={'started':dt.datetime.fromisoformat(start).astimezone(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.000+0000'),'timeSpentSeconds':seconds,'comment':{'type':'doc','version':1,'content':[{'type':'paragraph','content':[{'type':'text','text':'AIFlow activity #'+str(args.activity_id)}]}]}}
         if not args.apply:
             print(json.dumps({'dry_run':True,'remote_key':mapping[0],'seconds':seconds,'payload':payload},indent=2));return
         from urllib.parse import quote
+        # Reconcile a previous successful remote write before attempting another.
+        marker='AIFlow activity #'+str(args.activity_id)
+        existing=_request('GET','issue/'+quote(mapping[0],safe='')+'/worklog')
+        for entry in existing.get('worklogs',[]):
+            if marker in json.dumps(entry.get('comment',{})) and entry.get('timeSpentSeconds')==seconds:
+                db.execute('INSERT INTO tracker_worklogs(activity_id,remote_key,remote_id,seconds) VALUES(?,?,?,?)',(args.activity_id,mapping[0],str(entry['id']),seconds))
+                db.commit()
+                print('Existing Jira worklog reconciled:',entry['id'])
+                return
         result=_request('POST','issue/'+quote(mapping[0],safe='')+'/worklog',payload)
         remote_id=result.get('id')
         if not remote_id:raise ValueError('Jira did not return worklog ID; check remote before retrying to prevent duplicates')
