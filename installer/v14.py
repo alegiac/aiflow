@@ -112,7 +112,8 @@ def adopt(root, args):
     profiles=detected or ['php-laravel']
     available={p.parent.name for p in (Path(__file__).resolve().parents[1]/'profiles').glob('*/PROFILE.md')}
     profiles=[p for p in profiles if p in available] or ['php-laravel']
-    result=subprocess.run([os.environ.get('PYTHON',os.sys.executable),str(cli),'init','--profile',','.join(profiles)],cwd=root,check=False)
+    env=os.environ.copy(); env['AIFLOW_PROJECT']=str(root)
+    result=subprocess.run([os.environ.get('PYTHON',os.sys.executable),str(cli),'init','--profile',','.join(profiles)],cwd=root,env=env,check=False)
     if result.returncode: raise ValueError('Initialization failed; inspect project before retrying')
     report_path=root/'.ai'/'adoption-review.json'
     report_path.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
