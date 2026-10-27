@@ -24,7 +24,7 @@ def _append_once(path, marker, text):
 def sync(root, db):
     from installer import workflows
     workflows.ensure_schema(db)
-    ai=root/'.ai'
+    ai=root/'.aiflow'
     updated=[]
     decisions=db.execute("SELECT id,ref,statement,rationale,approved_at,approved_by,evidence FROM decisions WHERE status='approved' ORDER BY id").fetchall()
     for number,ref,statement,rationale,approved_at,actor,evidence in decisions:
@@ -72,7 +72,7 @@ def record(root,db,args):
     import hashlib
     if not args.text.strip() or not args.evidence.strip() or not args.by.strip():
         raise ValueError('Non-empty text, --evidence and --by required')
-    dest=root/'.ai'/('architecture.md' if args.scope=='architecture' else 'project.md')
+    dest=root/'.aiflow'/('architecture.md' if args.scope=='architecture' else 'project.md')
     digest=hashlib.sha256((args.scope+'\\0'+args.text.strip()+'\\0'+args.evidence.strip()).encode()).hexdigest()[:16]
     marker='<!-- aiflow:spec:'+digest+' -->'
     section=marker+'\n### Verified update ('+_stamp()+')\n\n'+args.text.strip()+'\n\nEvidence: '+args.evidence.strip()+'; approved by: '+args.by.strip()+'\n'
