@@ -12,10 +12,10 @@ HEADER = '''# AIFlow agent integration (managed section)
 
 This repository uses AIFlow for Epic/Task lifecycle and durable knowledge.
 When the user types `aiflow?`, `ai flow?`, or `help aiflow`, invoke the installed `aiflow-help` skill and show contextual help. This is a read-only request: do not create or modify project state.
-Run `aiflow status` and read `.ai/AGENTS.md`, `.ai/project.md`, `.ai/architecture.md`, `.ai/state/current.md` and the relevant Epic/Task documents before acting.
+Run `aiflow status` and read `.aiflow/AGENTS.md`, `.aiflow/project.md`, `.aiflow/architecture.md`, `.aiflow/state/current.md` and the relevant Epic/Task documents before acting.
 Use `aiflow` for creating IDs, status changes, session/track events and checkpoints. Do not invent approvals: only the human user can explicitly approve a decision or scope.
 Use `aiflow recover` after context compaction or interruption. For durable checkpoints use `aiflow checkpoint EPIC-ID[/TASK-ID] "summary" --next "next step"`. Use `aiflow decision propose`, `aiflow decision approve`, and `aiflow approve` to record explicit user decisions; do not fabricate --by/--evidence. Use `aiflow workflow-task start/review/finish` and `aiflow workflow-epic start/approve/finish` for lifecycle. During analysis do not implement code. Capture proposals in the relevant Markdown and ask for grouped approval. In `analitica`, after asking a question that needs user input, STOP the turn and WAIT for the reply; never continue the workflow or choose defaults in the same turn. Persist checkpoints during long tasks and before context compaction; on resume read the durable files again.
-Keep Task `task.md` and `report.md` updated, including acceptance criteria, implementation, test results, unresolved issues and handoff. Read `.ai/profiles/README.md` and follow every relevant active technology profile together. If profiles conflict, ask the developer rather than silently choosing. Respect the project tech profiles.
+Keep Task `task.md` and `report.md` updated, including acceptance criteria, implementation, test results, unresolved issues and handoff. Read `.aiflow/profiles/README.md` and follow every relevant active technology profile together. If profiles conflict, ask the developer rather than silently choosing. Respect the project tech profiles.
 Do not commit, push, deploy, access privileged servers, or invoke trust-server without the user's explicit authorization. Never record secrets in Markdown.
 Skill entrypoints are installed locally under `.agents/skills/` (Codex) or `.claude/skills/` (Claude Code).
 '''
@@ -40,7 +40,7 @@ def managed(path, content):
 def install(root, target='both'):
     if target not in ('codex','claude','both'):
         raise ValueError('Target non valido')
-    if not (root/'.ai'/'config.json').exists():
+    if not (root/'.aiflow'/'config.json').exists():
         raise ValueError('Esegui prima aiflow init')
     targets=['codex','claude'] if target=='both' else [target]
     created=[]
@@ -52,7 +52,7 @@ def install(root, target='both'):
             dest.mkdir(parents=True,exist_ok=True)
             original=(skill/'SKILL.md').read_text(encoding='utf-8')
             original += "\n\n## Contratto workflow\nLeggere `core/GOVERNANCE_V2.md` nel framework installato. Usare `aiflow recover` per ricostruire il contesto e `aiflow checkpoint` prima della compattazione. Approvazioni solo su istruzione umana esplicita; aggiornare `task.md`, `analysis.md`, `ux.md`, `report.md` senza inventare risultati.\n"
-            prefix='''\n## Esecuzione AIFlow (obbligatoria)\n- CLI: `aiflow` deve essere disponibile nel PATH (oppure eseguire il path assoluto configurato).\n- Prima di operare, `aiflow status` e lettura dei documenti `.ai` rilevanti.\n- Per Epic/Task usare `aiflow epic create`, `aiflow task create`, `aiflow epic status`, `aiflow task status`; per registrare checkpoint/decisioni usare `aiflow note`.\n- Scrivere e mantenere i documenti reali `.ai/epics/<EPIC-ID>/` e `.ai/epics/<EPIC-ID>/tasks/<TASK-ID>/`, senza sovrascrivere contenuto approvato.\n- Durante `analitica` non scrivere codice applicativo. Non considerare approvata una decisione senza conferma esplicita dell'utente.\n- `--confirm` va usato solo dopo verifica e autorizzazione umana, mai come scorciatoia.\n- Documentare risultati, test, rischi e prossimi passi nel report Task; fare checkpoint prima della compattazione.\n'''
+            prefix='''\n## Esecuzione AIFlow (obbligatoria)\n- CLI: `aiflow` deve essere disponibile nel PATH (oppure eseguire il path assoluto configurato).\n- Prima di operare, `aiflow status` e lettura dei documenti `.aiflow` rilevanti.\n- Per Epic/Task usare `aiflow epic create`, `aiflow task create`, `aiflow epic status`, `aiflow task status`; per registrare checkpoint/decisioni usare `aiflow note`.\n- Scrivere e mantenere i documenti reali `.aiflow/epics/<EPIC-ID>/` e `.aiflow/epics/<EPIC-ID>/tasks/<TASK-ID>/`, senza sovrascrivere contenuto approvato.\n- Durante `analitica` non scrivere codice applicativo. Non considerare approvata una decisione senza conferma esplicita dell'utente.\n- `--confirm` va usato solo dopo verifica e autorizzazione umana, mai come scorciatoia.\n- Documentare risultati, test, rischi e prossimi passi nel report Task; fare checkpoint prima della compattazione.\n'''
             if skill.name == 'trust-server':
                 # Never overwrite a pre-existing privileged skill without explicit migration.
                 if (dest/'SKILL.md').exists() and '## Limite della versione' not in (dest/'SKILL.md').read_text(encoding='utf-8'):
@@ -95,7 +95,7 @@ def install(root, target='both'):
                 content=agent.read_text(encoding='utf-8')
                 (agentsbase/('aiflow-'+agent.name)).write_text(content,encoding='utf-8')
                 created.append(str((agentsbase/('aiflow-'+agent.name)).relative_to(root)))
-    cfg=root/'.ai/config.json'
+    cfg=root/'.aiflow/config.json'
     data=json.loads(cfg.read_text(encoding='utf-8'))
     data['integrations']=sorted(set(data.get('integrations',[])+targets))
     cfg.write_text(json.dumps(data,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
