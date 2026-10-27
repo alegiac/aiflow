@@ -1,0 +1,26 @@
+name: Publish AIFlow release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Python
+        run: |
+          python3 -m compileall -q bin installer tools
+          python3 -m unittest discover -s tests -p test_install_manager.py -v
+      - name: Package
+        run: |
+          mkdir -p dist/ai-development-framework
+          cp -R bin installer core adapters profiles tools tests README.md DAILY_DIGEST.md RELEASE_NOTES.md install.sh upgrade.sh dist/ai-development-framework/
+          find dist -type d -name __pycache__ -prune -exec rm -rf {} +
+          (cd dist && zip -qr ../aiflow-release.zip ai-development-framework)
+          sha256sum aiflow-release.zip > aiflow-release.zip.sha256
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" aiflow-release.zip aiflow-release.zip.sha256 --title "AIFlow $GITHUB_REF_NAME" --generate-notes

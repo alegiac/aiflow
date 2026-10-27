@@ -1,0 +1,405 @@
+#!/usr/bin/env python3
+"""AIFlow: local, dependency-free project workflow CLI."""
+import argparse
+import csv
+import datetime as dt
+import json
+import os
+from pathlib import Path
+import re
+import sqlite3
+import sys
+import tempfile
+
+ROOT = Path(__file__).resolve().parents[1]
+NOW = lambda: dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')
+
+
+def project_root():
+    return Path(os.environ.get('AIFLOW_PROJECT', os.getcwd())).resolve()
+
+
+def db_path(root):
+    return root / '.ai' / 'state' / 'aiflow.sqlite3'
+
+
+def connect(root, initialize=False):
+    if not db_path(root).exists() and not initialize:
+        raise ValueError('Progetto non inizializzato: esegui aiflow init')
+    db_path(root).parent.mkdir(parents=True, exist_ok=True)
+    db = sqlite3.connect(db_path(root))
+    db.execute('PRAGMA foreign_keys=ON')
+    db.execute('PRAGMA busy_timeout=5000')
+    db.executescript('''
+      CREATE TABLE IF NOT EXISTS sequences(kind TEXT PRIMARY KEY, next_value INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS epics(id TEXT PRIMARY KEY, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'draft', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS tasks(epic_id TEXT NOT NULL, id TEXT NOT NULL, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'draft', created_at TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY(epic_id,id), FOREIGN KEY(epic_id) REFERENCES epics(id));
+      CREATE TABLE IF NOT EXISTS sessions(id INTEGER PRIMARY KEY AUTOINCREMENT, started_at TEXT NOT NULL, ended_at TEXT, note TEXT);
+      CREATE TABLE IF NOT EXISTS activities(id INTEGER PRIMARY KEY AUTOINCREMENT, session_id INTEGER, epic_id TEXT, task_id TEXT, started_at TEXT NOT NULL, ended_at TEXT, note TEXT, FOREIGN KEY(session_id) REFERENCES sessions(id));
+      CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL, kind TEXT NOT NULL, ref TEXT, details TEXT NOT NULL);
+    ''')
+    return db
+
+
+def write_new(path, content):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open('x', encoding='utf-8') as f:
+        f.write(content)
+
+
+def atomic_write(path, content):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(dir=path.parent, prefix='.aiflow-')
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(content)
+        os.replace(name, path)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
+
+
+def event(db, kind, ref, details=''):
+    db.execute('INSERT INTO events(created_at,kind,ref,details) VALUES(?,?,?,?)', (NOW(), kind, ref, details))
+
+
+def alloc(db, kind, explicit, prefix):
+    if explicit:
+        if not re.fullmatch(r'[A-Za-z][A-Za-z0-9_-]{1,63}', explicit) or '/' in explicit:
+            raise ValueError('ID non valido: usa lettere, numeri, trattini o underscore')
+        m = re.fullmatch(re.escape(prefix)+r'-(\d+)',explicit,re.I)
+        if m:
+            next_number=int(m.group(1))+1
+            db.execute('INSERT INTO sequences(kind,next_value) VALUES(?,?) ON CONFLICT(kind) DO UPDATE SET next_value=MAX(next_value,excluded.next_value)',(kind,next_number))
+        return explicit
+    row = db.execute('SELECT next_value FROM sequences WHERE kind=?', (kind,)).fetchone()
+    num = row[0] if row else 1
+    db.execute('INSERT INTO sequences(kind,next_value) VALUES(?,?) ON CONFLICT(kind) DO UPDATE SET next_value=excluded.next_value', (kind,num+1))
+    return f'{prefix}-{num:03d}'
+
+
+def epic_dir(root, eid):
+    return root / '.ai' / 'epics' / eid
+
+
+def task_dir(root, eid, tid):
+    return epic_dir(root, eid) / 'tasks' / tid
+
+
+def init(root, db, args):
+    ai = root / '.ai'
+    (ai/'epics').mkdir(parents=True, exist_ok=True)
+    (ai/'knowledge'/'decisions').mkdir(parents=True, exist_ok=True)
+    (ai/'state').mkdir(parents=True, exist_ok=True)
+    templates = {
+      'project.md': f'# Progetto\n\nNome: {args.name or root.name}\n\n## Scopo\n\nDa definire con l’utente.\n',
+      'architecture.md': '# Architettura attuale\n\nDa rilevare dalla repository. Non inventare dettagli.\n',
+      'AGENTS.md': '# Istruzioni agenti\n\nLeggi `.ai/project.md`, `.ai/architecture.md`, `.ai/state/current.md`, poi l’Epic e il Task attivi.\nLe decisioni sono bozze finché l’utente non le approva esplicitamente.\nNon inventare requisiti. Usa le skill del framework e `aiflow` per registrare gli stati.\nNon eseguire commit, push, deploy o operazioni server senza autorizzazione esplicita.\n',
+      'state/current.md': '# Stato corrente\n\nUsa `aiflow status` per lo stato operativo.\n',
+      'state/checkpoints.md': '# Checkpoint\n\n',
+      'state/logbook.md': '# Logbook\n\n',
+      'state/decisions.md': '# Decisioni\n\nLe proposte non sono approvate automaticamente.\n',
+    }
+    for relative, content in templates.items():
+        path = ai / relative
+        if not path.exists():
+            write_new(path, content)
+    cfg = ai/'config.json'
+    if not cfg.exists():
+        write_new(cfg, json.dumps({'framework_version':'1.0.0','profile':args.profile,'agent':'unconfigured'},indent=2)+'\n')
+    event(db,'project.init',str(root),args.profile)
+    print(f'Inizializzato: {root} (profilo {args.profile})')
+
+
+def create_epic(root, db, args):
+    db.execute('BEGIN IMMEDIATE')
+    eid = alloc(db,'epic',args.id,'EPIC')
+    if not args.id:
+        while db.execute('SELECT 1 FROM epics WHERE id=?',(eid,)).fetchone():
+            eid = alloc(db,'epic',None,'EPIC')
+    if db.execute('SELECT 1 FROM epics WHERE id=?',(eid,)).fetchone():
+        raise ValueError(f'Epic già esistente: {eid}')
+    now=NOW()
+    db.execute('INSERT INTO epics VALUES(?,?,?,?,?)',(eid,args.title,'draft',now,now))
+    d=epic_dir(root,eid)
+    write_new(d/'epic.md',f'# {eid} — {args.title}\n\n- ID: {eid}\n- Stato: draft\n- Creato: {now}\n\n## Obiettivo\n\nDa analizzare.\n\n## Ambito e vincoli\n\nDa definire.\n\n## Requisiti approvati\n\nNessuno.\n\n## Criteri di accettazione\n\nDa definire.\n\n## Task\n\nUsa `aiflow task list {eid}`.\n')
+    write_new(d/'analysis.md',f'# Analisi funzionale — {eid}\n\n## Esigenza\n\n## Attori e scenari\n\n## Regole di business\n\n## Ipotesi da validare\n\n## Domande aperte\n\n## Decisioni approvate\n\n')
+    write_new(d/'ux.md',f'# UX — {eid}\n\n## Flussi\n\n## Stati e messaggi\n\n## Accessibilità\n\n## Riferimenti Figma\n\n')
+    event(db,'epic.create',eid,args.title)
+    db.commit()
+    print(f'{eid}: {args.title}\n{d}')
+
+
+def create_task(root,db,args):
+    db.execute('BEGIN IMMEDIATE')
+    if not db.execute('SELECT 1 FROM epics WHERE id=?',(args.epic,)).fetchone():
+        raise ValueError(f'Epic inesistente: {args.epic}')
+    tid=alloc(db,'task:'+args.epic,args.id,'TASK')
+    if not args.id:
+        while db.execute('SELECT 1 FROM tasks WHERE epic_id=? AND id=?',(args.epic,tid)).fetchone():
+            tid=alloc(db,'task:'+args.epic,None,'TASK')
+    if db.execute('SELECT 1 FROM tasks WHERE epic_id=? AND id=?',(args.epic,tid)).fetchone():
+        raise ValueError(f'Task già esistente: {args.epic}/{tid}')
+    now=NOW()
+    db.execute('INSERT INTO tasks VALUES(?,?,?,?,?,?)',(args.epic,tid,args.title,'draft',now,now))
+    d=task_dir(root,args.epic,tid)
+    write_new(d/'task.md',f'# {args.epic}/{tid} — {args.title}\n\n- Stato: draft\n- Creato: {now}\n- Epic: {args.epic}\n\n## Descrizione\n\nDa analizzare con l’utente.\n\n## Requisiti e decisioni di riferimento\n\n## Piano di implementazione\n\n## File e moduli coinvolti\n\n## Criteri di accettazione\n\n## Test previsti\n\n## Rischi e punti aperti\n\n')
+    write_new(d/'report.md',f'# Resoconto — {args.epic}/{tid}\n\n## Attività svolte\n\n## File modificati\n\n## Test eseguiti ed esito\n\n## Impatti e problemi\n\n## Decisioni e checkpoint\n\n## Attività residue\n\n')
+    event(db,'task.create',f'{args.epic}/{tid}',args.title)
+    db.commit()
+    print(f'{args.epic}/{tid}: {args.title}\n{d}')
+
+
+def set_status(root,db,kind,args):
+    allowed={'epic':{'draft','analysis','approved','active','blocked','completed','cancelled'},'task':{'draft','ready','active','blocked','review','completed','cancelled'}}
+    if args.status not in allowed[kind]:
+        raise ValueError('Stato non valido: '+', '.join(sorted(allowed[kind])))
+    if kind=='epic':
+        ref=args.id
+        row=db.execute('SELECT title FROM epics WHERE id=?',(args.id,)).fetchone()
+        path=epic_dir(root,args.id)/'epic.md'
+        sql='UPDATE epics SET status=?,updated_at=? WHERE id=?'
+        vals=(args.status,NOW(),args.id)
+    else:
+        ref=f'{args.epic}/{args.id}'
+        row=db.execute('SELECT title FROM tasks WHERE epic_id=? AND id=?',(args.epic,args.id)).fetchone()
+        path=task_dir(root,args.epic,args.id)/'task.md'
+        sql='UPDATE tasks SET status=?,updated_at=? WHERE epic_id=? AND id=?'
+        vals=(args.status,NOW(),args.epic,args.id)
+    if not row: raise ValueError('Elemento inesistente: '+ref)
+    if args.status in ('approved','completed'):
+        raise ValueError('Usa workflow-epic/workflow-task: lo stato richiede le verifiche e le evidenze previste')
+    db.execute('BEGIN IMMEDIATE')
+    db.execute(sql,vals)
+    content=path.read_text(encoding='utf-8')
+    content=re.sub(r'(?m)^- Stato: .*$',f'- Stato: {args.status}',content,count=1)
+    atomic_write(path,content)
+    event(db,kind+'.status',ref,args.status)
+    db.commit()
+    print(ref, '→', args.status)
+
+
+def append_note(root,db,args):
+    if args.kind=='checkpoint':
+        path=root/'.ai/state/checkpoints.md'
+    elif args.kind=='decision':
+        path=root/'.ai/state/decisions.md'
+    elif args.kind=='log':
+        path=root/'.ai/state/logbook.md'
+    else:
+        raise ValueError('Tipo nota non valido')
+    status=' [PROPOSTA NON APPROVATA]' if args.kind=='decision' else ''
+    line=f'\n## {NOW()} — {args.ref or "progetto"}{status}\n\n{args.text}\n'
+    with path.open('a',encoding='utf-8') as f: f.write(line)
+    event(db,args.kind,args.ref or '',args.text)
+    db.commit()
+    print('Registrato:',path)
+
+
+def session(root,db,args):
+    if args.action=='start':
+        if db.execute('SELECT 1 FROM sessions WHERE ended_at IS NULL').fetchone(): raise ValueError('Esiste già una sessione aperta')
+        cur=db.execute('INSERT INTO sessions(started_at,note) VALUES(?,?)',(NOW(),args.note))
+        event(db,'session.start',str(cur.lastrowid),args.note or '')
+        db.commit(); print('Sessione avviata:',cur.lastrowid)
+    else:
+        row=db.execute('SELECT id FROM sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1').fetchone()
+        if not row: raise ValueError('Nessuna sessione aperta')
+        if db.execute('SELECT 1 FROM activities WHERE ended_at IS NULL').fetchone(): raise ValueError('Chiudi prima il tracking attività con aiflow track stop')
+        db.execute('UPDATE sessions SET ended_at=?,note=COALESCE(?,note) WHERE id=?',(NOW(),args.note,row[0]))
+        event(db,'session.end',str(row[0]),args.note or '')
+        db.commit(); print('Sessione chiusa:',row[0])
+
+
+def track(db,args):
+    if args.action=='start':
+        if db.execute('SELECT 1 FROM activities WHERE ended_at IS NULL').fetchone(): raise ValueError('Tracking già attivo')
+        sid=db.execute('SELECT id FROM sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1').fetchone()
+        if args.task and not args.epic: raise ValueError('--task richiede --epic')
+        if args.epic and not db.execute('SELECT 1 FROM epics WHERE id=?',(args.epic,)).fetchone(): raise ValueError('Epic inesistente')
+        if args.task and not db.execute('SELECT 1 FROM tasks WHERE epic_id=? AND id=?',(args.epic,args.task)).fetchone(): raise ValueError('Task inesistente')
+        cur=db.execute('INSERT INTO activities(session_id,epic_id,task_id,started_at,note) VALUES(?,?,?,?,?)',(sid[0] if sid else None,args.epic,args.task,NOW(),args.note))
+        event(db,'track.start',str(cur.lastrowid),args.note or '')
+        db.commit(); print('Tracking avviato:',cur.lastrowid)
+    else:
+        row=db.execute('SELECT id FROM activities WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1').fetchone()
+        if not row: raise ValueError('Nessun tracking attivo')
+        db.execute('UPDATE activities SET ended_at=? WHERE id=?',(NOW(),row[0]))
+        event(db,'track.stop',str(row[0]),'')
+        db.commit(); print('Tracking fermato:',row[0])
+
+
+def show_status(db):
+    print('EPIC')
+    for eid,title,status in db.execute('SELECT id,title,status FROM epics ORDER BY created_at,id'):
+        print(f'  {eid:<14} [{status}] {title}')
+        for tid,tt,ts in db.execute('SELECT id,title,status FROM tasks WHERE epic_id=? ORDER BY created_at,id',(eid,)).fetchall():
+            print(f'    {tid:<12} [{ts}] {tt}')
+    row=db.execute('SELECT id,started_at FROM sessions WHERE ended_at IS NULL').fetchone()
+    print('SESSIONE:', f'#{row[0]} dal {row[1]}' if row else 'nessuna')
+    row=db.execute('SELECT id,epic_id,task_id,started_at FROM activities WHERE ended_at IS NULL').fetchone()
+    print('TRACKING:', f'#{row[0]} {row[1] or ""}/{row[2] or ""} dal {row[3]}' if row else 'nessuno')
+
+
+def export(db,args):
+    path=Path(args.output).resolve()
+    path.parent.mkdir(parents=True,exist_ok=True)
+    with path.open('w',newline='',encoding='utf-8') as f:
+        w=csv.writer(f)
+        w.writerow(['activity_id','session_id','epic_id','task_id','started_at','ended_at','duration_minutes','note'])
+        for row in db.execute('SELECT id,session_id,epic_id,task_id,started_at,ended_at,note FROM activities ORDER BY id'):
+            a,b,c,d,start,end,note=row
+            duration=round((dt.datetime.fromisoformat(end)-dt.datetime.fromisoformat(start)).total_seconds()/60,2) if end else ''
+            w.writerow([a,b,c,d,start,end,duration,note])
+    print('Esportato:',path)
+
+
+def menu():
+    """Interactive front end for the same command handlers used by agents."""
+    actions = [
+        ('Stato del progetto', lambda: ['status']),
+        ('Crea Epic', lambda: ['epic','create',input('Titolo: ').strip()] + opt_id()),
+        ('Elenca Epic', lambda: ['epic','list']),
+        ('Crea Task', lambda: ['task','create',input('Epic ID: ').strip(),input('Titolo: ').strip()] + opt_id()),
+        ('Elenca Task', lambda: ['task','list',input('Epic ID: ').strip()]),
+        ('Avvia Epic', lambda: ['workflow-epic','start',input('Epic ID: ').strip()]),
+        ('Avvia Task', lambda: ['workflow-task','start',input('Epic ID: ').strip(),input('Task ID: ').strip()]),
+        ('Task in review', lambda: ['workflow-task','review',input('Epic ID: ').strip(),input('Task ID: ').strip()]),
+        ('Proponi decisione', lambda: ['decision','propose',input('Epic o Epic/Task: ').strip(),input('Decisione proposta: ').strip()]),
+        ('Registra checkpoint', lambda: ['checkpoint',input('Epic o Epic/Task: ').strip(),input('Riepilogo: ').strip(),'--next',input('Prossimo passo: ').strip()]),
+        ('Sessione: inizia', lambda: ['session','start']),
+        ('Sessione: termina', lambda: ['session','stop']),
+        ('Tracking: inizia', lambda: ['track','start','--epic',input('Epic ID: ').strip(),'--task',input('Task ID: ').strip()]),
+        ('Tracking: termina', lambda: ['track','stop']),
+        ('Recupera contesto', lambda: ['recover']),
+        ('Resoconto', lambda: ['report',input('project / EPIC-ID / EPIC-ID/TASK-ID: ').strip()]),
+        ('Esporta CSV', lambda: ['export',input('Percorso CSV: ').strip()]),
+        ('Diagnostica', lambda: ['doctor']),
+        ('Integra Codex e Claude', lambda: ['integrate','both']),
+    ]
+    print('\nAIFlow — gestione del progetto\n')
+    for i,(label,_) in enumerate(actions,1): print(f'{i:2}. {label}')
+    print(' 0. Esci')
+    choice=input('Scelta: ').strip()
+    if not choice or choice=='0': return []
+    try: return actions[int(choice)-1][1]() if 1<=int(choice)<=len(actions) else []
+    except ValueError: return []
+
+
+def opt_id():
+    value=input('ID personalizzato (invio = automatico): ').strip()
+    return ['--id',value] if value else []
+
+
+def parser():
+    p=argparse.ArgumentParser(prog='aiflow',description='AI development workflow CLI')
+    sub=p.add_subparsers(dest='command')
+    s=sub.add_parser('init'); s.add_argument('--name'); s.add_argument('--profile',default='php-laravel')
+    sub.add_parser('status'); sub.add_parser('doctor')
+    integration=sub.add_parser('integrate',help='Installa skill e istruzioni locali per Codex/Claude Code')
+    integration.add_argument('target',nargs='?',choices=['codex','claude','both'],default='both')
+    for kind in ('epic','task'):
+        group=sub.add_parser(kind).add_subparsers(dest='action',required=True)
+        c=group.add_parser('create')
+        if kind=='task': c.add_argument('epic')
+        c.add_argument('title'); c.add_argument('--id')
+        st=group.add_parser('status')
+        if kind=='task': st.add_argument('epic')
+        st.add_argument('id'); st.add_argument('status'); st.add_argument('--confirm',action='store_true')
+        li=group.add_parser('list')
+        if kind=='task': li.add_argument('epic')
+    n=sub.add_parser('note'); n.add_argument('kind',choices=['checkpoint','decision','log']); n.add_argument('text'); n.add_argument('--ref')
+    sess=sub.add_parser('session').add_subparsers(dest='action',required=True)
+    for name in ('start','stop'):
+        a=sess.add_parser(name); a.add_argument('--note')
+    tr=sub.add_parser('track').add_subparsers(dest='action',required=True)
+    t=tr.add_parser('start'); t.add_argument('--epic'); t.add_argument('--task'); t.add_argument('--note')
+    tr.add_parser('stop')
+    dec=sub.add_parser('decision').add_subparsers(dest='action',required=True)
+    dp=dec.add_parser('propose'); dp.add_argument('ref'); dp.add_argument('text'); dp.add_argument('--rationale')
+    da=dec.add_parser('approve'); da.add_argument('id',type=int); da.add_argument('--ref',help='GLOBAL o PLATFORM:php-laravel per decisioni condivise'); da.add_argument('--by',required=True); da.add_argument('--evidence',required=True)
+    dec.add_parser('list')
+    ap=sub.add_parser('approve'); ap.add_argument('ref'); ap.add_argument('kind',choices=['scope','requirements','ux','plan','acceptance']); ap.add_argument('--by',required=True); ap.add_argument('--evidence',required=True)
+    cp=sub.add_parser('checkpoint'); cp.add_argument('ref'); cp.add_argument('summary'); cp.add_argument('--next')
+    sub.add_parser('recover')
+    for kind in ('epic','task'):
+        flow=sub.add_parser('workflow-'+kind).add_subparsers(dest='action',required=True)
+        for action in (('start','approve','finish') if kind=='epic' else ('start','review','finish')):
+            a=flow.add_parser(action)
+            if kind=='task': a.add_argument('epic')
+            a.add_argument('id'); a.add_argument('--by'); a.add_argument('--evidence')
+    e=sub.add_parser('export'); e.add_argument('output')
+    r=sub.add_parser('report'); r.add_argument('ref',nargs='?',default='project'); r.add_argument('--output')
+    return p
+
+
+def manager_command(argv):
+    import subprocess
+    tool = ROOT / 'tools' / 'install_manager.py'
+    action = argv[0]
+    command = {'install':'install','upgrade':'upgrade','check-update':'check'}[action]
+    return subprocess.call([sys.executable, str(tool), command, *argv[1:]])
+
+
+def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] in ('install','upgrade','check-update'):
+        return manager_command(argv)
+    argv=sys.argv[1:] if argv is None else argv
+    if not argv:
+        argv=menu()
+        if not argv: return 0
+    args=parser().parse_args(argv)
+    root=project_root()
+    try:
+        db=connect(root,initialize=args.command=='init')
+        if args.command=='init': init(root,db,args)
+        elif args.command=='status': show_status(db)
+        elif args.command=='integrate':
+            sys.path.insert(0,str(ROOT))
+            from installer.integrate import install
+            paths=install(root,args.target)
+            event(db,'integrate',args.target,str(len(paths))+' file')
+            db.commit()
+            print('Integrazione completata:',args.target)
+            for path in paths: print('  ',path)
+        elif args.command=='doctor':
+            print('Progetto:',root,'\nDatabase:',db_path(root),'\nFramework:',ROOT)
+            for key in ('AGENTS.md','project.md','architecture.md','state/current.md'):
+                print(('OK' if (root/'.ai'/key).exists() else 'MISSING'),key)
+        elif args.command=='epic':
+            if args.action=='create': create_epic(root,db,args)
+            elif args.action=='status': set_status(root,db,'epic',args)
+            else:
+                for r in db.execute('SELECT id,title,status FROM epics ORDER BY created_at,id'): print(*r,sep=' | ')
+        elif args.command=='task':
+            if args.action=='create': create_task(root,db,args)
+            elif args.action=='status': set_status(root,db,'task',args)
+            else:
+                for r in db.execute('SELECT id,title,status FROM tasks WHERE epic_id=? ORDER BY created_at,id',(args.epic,)): print(*r,sep=' | ')
+        elif args.command=='note': append_note(root,db,args)
+        elif args.command=='session': session(root,db,args)
+        elif args.command=='track': track(db,args)
+        elif args.command in ('decision','approve','checkpoint','recover','workflow-epic','workflow-task'):
+            sys.path.insert(0,str(ROOT))
+            from installer import workflows
+            workflows.ensure_schema(db)
+            if args.command=='decision': workflows.decision(root,db,args)
+            elif args.command=='approve': workflows.approval(root,db,args)
+            elif args.command=='checkpoint': workflows.checkpoint(root,db,args)
+            elif args.command=='recover': workflows.recovery(root,db,args)
+            else:
+                args.kind=args.command.split('-',1)[1]
+                workflows.lifecycle(root,db,args)
+        elif args.command=='export': export(db,args)
+        elif args.command=='report':
+            sys.path.insert(0,str(ROOT))
+            from installer import workflows
+            workflows.ensure_schema(db)
+            workflows.report(root,db,args)
+        else: parser().print_help()
+        db.close(); return 0
+    except (ValueError,sqlite3.IntegrityError,FileExistsError) as e:
+        print('Errore:',e,file=sys.stderr); return 2
+
+if __name__=='__main__': sys.exit(main())
