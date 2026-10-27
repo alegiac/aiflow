@@ -394,6 +394,10 @@ def parser():
     for action in ('start','end'):
         d=dayp.add_parser(action); d.add_argument('--date'); d.add_argument('--json',action='store_true')
         if action=='end': d.add_argument('--summary'); d.add_argument('--next')
+    specs=sub.add_parser('specs',help='Consolidate approved project specs').add_subparsers(dest='action',required=True)
+    specs.add_parser('sync')
+    proposal=specs.add_parser('propose',help='Explicitly create draft Epic/Task with Markdown')
+    proposal.add_argument('kind',choices=['epic','task']); proposal.add_argument('title'); proposal.add_argument('--epic')
     ad=sub.add_parser('adopt',help='Preview or adopt an existing project')
     ad.add_argument('path',nargs='?'); ad.add_argument('--conversation'); ad.add_argument('--apply',action='store_true')
     profile = sub.add_parser('profile', help='Gestisci i profili tecnologici del progetto')
@@ -470,6 +474,15 @@ def main(argv=None):
         db=connect(root,initialize=args.command=='init')
         if args.command=='init': init(root,db,args)
         elif args.command=='profile': profile_command(root,db,args)
+        elif args.command=='specs':
+            sys.path.insert(0,str(ROOT))
+            from installer import specsync
+            if args.action=='sync':
+                updated=specsync.sync(root,db)
+                print('Specification documents updated:',len(updated))
+            else:
+                if args.kind=='task' and not args.epic: raise ValueError('Task proposal requires --epic')
+                specsync.propose(root,db,args)
         elif args.command=='day':
             sys.path.insert(0,str(ROOT))
             from installer.v14 import day
