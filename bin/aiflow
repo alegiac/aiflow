@@ -87,6 +87,7 @@ def task_dir(root, eid, tid):
 
 
 def init(root, db, args):
+    profiles = parse_profiles(args.profile)
     ai = root / '.ai'
     (ai/'epics').mkdir(parents=True, exist_ok=True)
     (ai/'knowledge'/'decisions').mkdir(parents=True, exist_ok=True)
@@ -94,7 +95,7 @@ def init(root, db, args):
     templates = {
       'project.md': f'# Progetto\n\nNome: {args.name or root.name}\n\n## Scopo\n\nDa definire con l’utente.\n',
       'architecture.md': '# Architettura attuale\n\nDa rilevare dalla repository. Non inventare dettagli.\n',
-      'AGENTS.md': '# Istruzioni agenti\n\nLeggi `.ai/project.md`, `.ai/architecture.md`, `.ai/state/current.md`, poi l’Epic e il Task attivi.\nLe decisioni sono bozze finché l’utente non le approva esplicitamente.\nNon inventare requisiti. Usa le skill del framework e `aiflow` per registrare gli stati.\nNon eseguire commit, push, deploy o operazioni server senza autorizzazione esplicita.\n',
+      'AGENTS.md': '# Istruzioni agenti\n\nLeggi `.ai/project.md`, `.ai/architecture.md`, `.ai/state/current.md`, poi l’Epic e il Task attivi.\nConsulta `.ai/profiles/README.md` e applica insieme i profili attivi pertinenti al task.\nLe decisioni sono bozze finché l’utente non le approva esplicitamente.\nNon inventare requisiti. Usa le skill del framework e `aiflow` per registrare gli stati.\nNon eseguire commit, push, deploy o operazioni server senza autorizzazione esplicita.\n',
       'state/current.md': '# Stato corrente\n\nUsa `aiflow status` per lo stato operativo.\n',
       'state/checkpoints.md': '# Checkpoint\n\n',
       'state/logbook.md': '# Logbook\n\n',
@@ -106,9 +107,102 @@ def init(root, db, args):
             write_new(path, content)
     cfg = ai/'config.json'
     if not cfg.exists():
-        write_new(cfg, json.dumps({'framework_version':'1.0.0','profile':args.profile,'agent':'unconfigured'},indent=2)+'\n')
-    event(db,'project.init',str(root),args.profile)
-    print(f'Inizializzato: {root} (profilo {args.profile})')
+        write_new(cfg, json.dumps({'framework_version':'1.0.0','profile':profiles[0],'profiles':profiles,'agent':'unconfigured'},indent=2)+'\n')
+    data, configured = read_project_profiles(root)
+    sync_project_profiles(root, configured)
+    event(db,'project.init',str(root),','.join(configured))
+    print(f'Inizializzato: {root} (profili {", ".join(configured)})')
+
+
+
+def available_profiles():
+    return sorted(p.parent.name for p in (ROOT / 'profiles').glob('*/PROFILE.md') if p.parent.name != 'TEMPLATE')
+
+
+def parse_profiles(raw):
+    names = [name.strip().lower() for name in raw.split(',')]
+    if not names or any(not name or not re.fullmatch(r'[a-z][a-z0-9]*(?:-[a-z0-9]+)*', name) for name in names):
+        raise ValueError('Lista profili non valida: usa slug separati da virgola')
+    names = list(dict.fromkeys(names))
+    missing = [name for name in names if name not in available_profiles()]
+    if missing:
+        raise ValueError('Profili sconosciuti: ' + ', '.join(missing) + '. Disponibili: ' + ', '.join(available_profiles()))
+    return names
+
+
+def read_project_profiles(root):
+    cfg = root / '.ai' / 'config.json'
+    if not cfg.exists():
+        raise ValueError('Progetto non inizializzato: esegui aiflow init')
+    data = json.loads(cfg.read_text(encoding='utf-8'))
+    profiles = data.get('profiles')
+    if profiles is None:
+        profiles = parse_profiles(data.get('profile', 'php-laravel'))
+    return data, list(dict.fromkeys(profiles))
+
+
+def sync_project_profiles(root, profiles):
+    dest = root / '.ai' / 'profiles'
+    dest.mkdir(parents=True, exist_ok=True)
+    # Only manage the generated index; never overwrite user-owned profile documents.
+    lines = ['# AIFlow active technology profiles', '',
+             'Read the following bundled profiles when planning or implementing relevant tasks.',
+             'Apply all relevant profiles together; raise conflicting guidance for human review.', '']
+    for name in profiles:
+        source = ROOT / 'profiles' / name / 'PROFILE.md'
+        lines.append(f'- **{name}**: `{source}`')
+    lines += ['', 'These definitions are distributed with the installed AIFlow version.', '']
+    atomic_write(dest / 'README.md', '\n'.join(lines))
+    return dest / 'README.md'
+
+
+def profile_walkthrough(root, name):
+    names = available_profiles()
+    if name not in names:
+        raise ValueError('Profilo sconosciuto: ' + name + '. Disponibili: ' + ', '.join(names))
+    source = ROOT / 'profiles' / name / 'PROFILE.md'
+    content = source.read_text(encoding='utf-8')
+    print('AIFlow profile walkthrough: ' + name)
+    print('Source: ' + str(source))
+    print()
+    print(content)
+    print('---')
+    print('Walkthrough completed. Review each rule against the actual project stack and versions.')
+    print('Profile guidance does not authorize installs, deployments, or architectural decisions.')
+
+
+def profile_command(root, db, args):
+    if args.action == 'available':
+        for name in available_profiles(): print(name)
+        return
+    if args.action == 'walkthrough':
+        profile_walkthrough(root, args.name)
+        return
+    data, current = read_project_profiles(root)
+    if args.action == 'list':
+        for name in current: print(name)
+        return
+    if args.action == 'sync':
+        missing = [name for name in current if name not in available_profiles()]
+        if missing:
+            raise ValueError('Profili non presenti nella versione AIFlow installata: ' + ', '.join(missing))
+        sync_project_profiles(root, current)
+        print('Profili sincronizzati:', ', '.join(current))
+        return
+    changes = parse_profiles(args.profiles)
+    if args.action == 'add':
+        updated = current + [name for name in changes if name not in current]
+    else:
+        updated = [name for name in current if name not in changes]
+        if not updated:
+            raise ValueError('Almeno un profilo deve rimanere attivo')
+    data['profiles'] = updated
+    data['profile'] = updated[0]  # backward compatibility for older integrations
+    atomic_write(root / '.ai' / 'config.json', json.dumps(data, indent=2, ensure_ascii=False) + '\n')
+    sync_project_profiles(root, updated)
+    event(db, 'profile.' + args.action, ','.join(changes), ','.join(updated))
+    db.commit()
+    print('Profili attivi:', ', '.join(updated))
 
 
 def create_epic(root, db, args):
@@ -296,6 +390,13 @@ def parser():
     sub=p.add_subparsers(dest='command')
     s=sub.add_parser('init'); s.add_argument('--name'); s.add_argument('--profile',default='php-laravel')
     sub.add_parser('status'); sub.add_parser('doctor')
+    profile = sub.add_parser('profile', help='Gestisci i profili tecnologici del progetto')
+    profile_sub = profile.add_subparsers(dest='action', required=True)
+    for action in ('list', 'available', 'sync'):
+        profile_sub.add_parser(action)
+    profile_sub.add_parser('walkthrough', help='Mostra tutte le regole del profilo').add_argument('name')
+    for action in ('add', 'remove'):
+        profile_sub.add_parser(action).add_argument('profiles', help='Slug separati da virgola')
     integration=sub.add_parser('integrate',help='Installa skill e istruzioni locali per Codex/Claude Code')
     integration.add_argument('target',nargs='?',choices=['codex','claude','both'],default='both')
     for kind in ('epic','task'):
@@ -352,8 +453,12 @@ def main(argv=None):
     args=parser().parse_args(argv)
     root=project_root()
     try:
+        if args.command == 'profile' and args.action in ('available', 'walkthrough'):
+            profile_command(root, None, args)
+            return 0
         db=connect(root,initialize=args.command=='init')
         if args.command=='init': init(root,db,args)
+        elif args.command=='profile': profile_command(root,db,args)
         elif args.command=='status': show_status(db)
         elif args.command=='integrate':
             sys.path.insert(0,str(ROOT))

@@ -41,6 +41,43 @@ class TestCLI(unittest.TestCase):
             self.run_cli('approve','AUTH',kind,'--by','user','--evidence','Explicit approval')
         self.run_cli('workflow-epic','approve','AUTH','--by','user','--evidence','Explicit approval')
         self.assertIn('Stato: approved',(self.root/'.ai/epics/AUTH/epic.md').read_text())
+    def test_multiple_profiles_and_incremental_changes(self):
+        import json
+        self.run_cli('init', '--profile', 'php-laravel,react,shadcn,shopify-graphql,mysql')
+        cfg = self.root / '.ai/config.json'
+        data = json.loads(cfg.read_text())
+        self.assertEqual(data['profiles'], ['php-laravel', 'react', 'shadcn', 'shopify-graphql', 'mysql'])
+        self.assertIn('react', (self.root / '.ai/profiles/README.md').read_text())
+        self.run_cli('profile', 'add', 'nodejs,react')
+        self.assertEqual(json.loads(cfg.read_text())['profiles'][-1], 'nodejs')
+        self.run_cli('profile', 'remove', 'mysql')
+        self.assertNotIn('mysql', json.loads(cfg.read_text())['profiles'])
+        self.run_cli('profile', 'sync')
+        self.assertIn('nodejs', self.run_cli('profile', 'list').stdout)
+        self.assertIn('postgresql', self.run_cli('profile', 'available').stdout)
+
+    def test_profile_walkthrough_is_read_only_and_available_outside_project(self):
+        for slug in ('php-laravel', 'react', 'shadcn', 'tailwind', 'shopify-rest',
+                     'shopify-graphql', 'postgresql', 'mysql', 'nodejs'):
+            result = self.run_cli('profile', 'walkthrough', slug)
+            self.assertIn('AIFlow profile walkthrough:', result.stdout)
+            self.assertIn('##', result.stdout)
+        self.assertFalse((self.root / '.ai').exists())
+        bad = self.run_cli('profile', 'walkthrough', 'unknown', ok=False)
+        self.assertNotEqual(bad.returncode, 0)
+
+    def test_unknown_profile_and_existing_project_preservation(self):
+        import json
+        bad = self.run_cli('init', '--profile', 'not-a-real-profile', ok=False)
+        self.assertNotEqual(bad.returncode, 0)
+        self.run_cli('init', '--profile', 'php-laravel')
+        self.run_cli('profile', 'add', 'react')
+        self.run_cli('init', '--profile', 'php-laravel')
+        self.assertEqual(json.loads((self.root / '.ai/config.json').read_text())['profiles'], ['php-laravel', 'react'])
+        bad = self.run_cli('profile', 'add', 'not-a-real-profile', ok=False)
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertEqual(json.loads((self.root / '.ai/config.json').read_text())['profiles'], ['php-laravel', 'react'])
+
     def test_does_not_overwrite(self):
         self.run_cli('init')
         path=self.root/'.ai/project.md'; path.write_text('Personalizzato')

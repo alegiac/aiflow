@@ -123,6 +123,35 @@ codex       # or: claude
 
 Ask the agent: `aiflow?` for contextual help or request `analitica` to start requirements analysis.
 
+## Composable technology profiles
+
+Initialize a project with multiple comma-separated technology profiles. Profiles are Markdown guidance that the AI agents apply together; they do not install dependencies or change your application stack.
+
+```bash
+aiflow profile available
+aiflow init --profile php-laravel,react,shadcn,tailwind,shopify-graphql,mysql
+aiflow integrate both
+aiflow profile list
+```
+
+Add or remove technologies later without reinitializing the project:
+
+```bash
+aiflow profile add nodejs,postgresql
+aiflow profile remove mysql
+aiflow profile sync
+
+# Read the complete rules for a technology
+aiflow profile walkthrough php-laravel
+aiflow profile walkthrough shopify-graphql
+```
+
+The ordered list is stored in `.ai/config.json` under `profiles`, with `profile` preserved for compatibility. AIFlow generates `.ai/profiles/README.md` as an agent-readable index. The actual versioned guidance lives in the installed AIFlow `profiles/<slug>/PROFILE.md` directory; updating AIFlow can update those definitions. The CLI preserves existing project documents and does not install npm packages, database servers or Shopify apps.
+
+Bundled profiles: `php-laravel`, `react`, `shadcn`, `tailwind`, `shopify-rest` (legacy), `shopify-graphql`, `postgresql`, `mysql`, `nodejs`. REST and GraphQL may coexist during migration; shadcn requires a compatible React/Tailwind setup. Explicitly select multiple databases only if the architecture calls for them.
+
+Every bundled technology has a dedicated Codex/Claude walkthrough skill named `aiflow-profile-<slug>-walkthrough`, installed by `aiflow integrate both`. Invoke it to explain every profile section, discuss practical examples and ask follow-up questions. The CLI walkthrough is read-only and also works outside an initialized project.\n\nFor existing projects initialized with a single `profile` value, `aiflow profile add ...` upgrades the configuration without resetting the SQLite state. Re-run `aiflow integrate both` after upgrading to refresh agent instructions. Profile selection informs agent behavior; it does not automatically validate every cross-stack dependency.
+
 ## 6. Example workflow
 
 ```bash
