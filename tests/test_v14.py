@@ -33,19 +33,19 @@ class TestV14(unittest.TestCase):
         (self.root/'composer.json').write_text('{"require":{"laravel/framework":"^13.0"}}')
         preview=self.cli('adopt').stdout
         self.assertIn('php-laravel',preview)
-        self.assertFalse((self.root/'.ai').exists())
+        self.assertFalse((self.root/'.aiflow').exists())
         self.cli('adopt','--apply')
-        self.assertTrue((self.root/'.ai/adoption-review.json').exists())
-        self.assertTrue((self.root/'.ai/adoption-review.md').exists())
+        self.assertTrue((self.root/'.aiflow/adoption-review.json').exists())
+        self.assertTrue((self.root/'.aiflow/adoption-review.md').exists())
         self.assertNotEqual(self.cli('adopt','--apply',ok=False).returncode,0)
     def test_adoption_conversation_is_review_only(self):
         (self.root/'package.json').write_text('{"dependencies":{"react":"^19"}}')
         conversation=self.root/'conversation.md'
         conversation.write_text('We decided to implement the user dashboard tomorrow.\n')
         self.cli('adopt','--conversation',str(conversation),'--apply')
-        report=json.loads((self.root/'.ai/adoption-review.json').read_text())
+        report=json.loads((self.root/'.aiflow/adoption-review.json').read_text())
         self.assertGreaterEqual(report['conversation']['characters'],10)
-        self.assertFalse(list((self.root/'.ai/epics').iterdir()))
+        self.assertFalse(list((self.root/'.aiflow/epics').iterdir()))
     def test_tracker_is_not_exposed(self):
         self.cli('init')
         self.assertNotIn('tracker',self.cli('--help').stdout)
@@ -54,24 +54,24 @@ class TestV14(unittest.TestCase):
         self.cli('init')
         self.cli('epic','create','Billing')
         self.cli('task','create','EPIC-001','Invoice PDF')
-        epic=self.root/'.ai/epics/EPIC-001/epic.md'
-        task=self.root/'.ai/epics/EPIC-001/tasks/TASK-001/task.md'
+        epic=self.root/'.aiflow/epics/EPIC-001/epic.md'
+        task=self.root/'.aiflow/epics/EPIC-001/tasks/TASK-001/task.md'
         self.assertTrue(epic.exists())
         self.assertTrue(task.exists())
         self.cli('specs','sync')
         self.cli('specs','sync')
-        self.assertEqual((self.root/'.ai/project.md').read_text().count('<!-- aiflow:inventory:start -->'),1)
-        self.assertIn('TASK-001: Invoice PDF', (self.root/'.ai/project.md').read_text())
+        self.assertEqual((self.root/'.aiflow/project.md').read_text().count('<!-- aiflow:inventory:start -->'),1)
+        self.assertIn('TASK-001: Invoice PDF', (self.root/'.aiflow/project.md').read_text())
         self.assertIn('Billing',epic.read_text())
         self.cli('day','start')
         self.cli('day','end','--summary','Done','--next','Next task')
-        self.assertIn('Done',(self.root/'.ai/state/checkpoints.md').read_text())
+        self.assertIn('Done',(self.root/'.aiflow/state/checkpoints.md').read_text())
 
     def test_evidence_backed_architecture_update(self):
         self.cli('init')
         self.cli('specs','record','architecture','PostgreSQL persistence','--by','user','--evidence','Reviewed ADR')
         self.cli('specs','record','architecture','PostgreSQL persistence','--by','user','--evidence','Reviewed ADR')
-        doc=(self.root/'.ai/architecture.md').read_text()
+        doc=(self.root/'.aiflow/architecture.md').read_text()
         self.assertEqual(doc.count('PostgreSQL persistence'),1)
         self.assertIn('Reviewed ADR',doc)
 
@@ -79,7 +79,7 @@ class TestV14(unittest.TestCase):
         self.cli('init')
         self.assertNotIn('propose',self.cli('specs','--help').stdout)
         self.cli('epic','create','Payments')
-        project=self.root/'.ai/project.md'
+        project=self.root/'.aiflow/project.md'
         self.assertIn('EPIC-001: Payments [draft]',project.read_text())
         self.cli('task','create','EPIC-001','Card capture')
         self.assertIn('TASK-001: Card capture [draft]',project.read_text())
@@ -93,12 +93,12 @@ class TestV14(unittest.TestCase):
     def test_adopt_force_preserves_initialized_project(self):
         (self.root/'composer.json').write_text('{"require":{"laravel/framework":"^13.0"}}')
         self.cli('init')
-        cfg=self.root/'.ai/config.json'
-        project=self.root/'.ai/project.md'
+        cfg=self.root/'.aiflow/config.json'
+        project=self.root/'.aiflow/project.md'
         original_cfg=cfg.read_bytes()
         self.cli('epic','create','Existing epic')
         original_project=project.read_bytes()
-        epic=self.root/'.ai/epics/EPIC-001/epic.md'
+        epic=self.root/'.aiflow/epics/EPIC-001/epic.md'
         original_epic=epic.read_bytes()
         self.assertNotEqual(self.cli('adopt','--apply',ok=False).returncode,0)
         self.assertNotEqual(self.cli('adopt','--force',ok=False).returncode,0)
@@ -106,7 +106,7 @@ class TestV14(unittest.TestCase):
         self.assertEqual(cfg.read_bytes(),original_cfg)
         self.assertEqual(project.read_bytes(),original_project)
         self.assertEqual(epic.read_bytes(),original_epic)
-        self.assertTrue((self.root/'.ai/adoption-review.md').exists())
-        self.assertTrue((self.root/'.ai/adoption-review.json').exists())
-        self.assertTrue(json.loads((self.root/'.ai/adoption-review.json').read_text())['existing_initialization_preserved'])
+        self.assertTrue((self.root/'.aiflow/adoption-review.md').exists())
+        self.assertTrue((self.root/'.aiflow/adoption-review.json').exists())
+        self.assertTrue(json.loads((self.root/'.aiflow/adoption-review.json').read_text())['existing_initialization_preserved'])
         self.assertNotEqual(self.cli('adopt','--apply','--force',ok=False).returncode,0)
