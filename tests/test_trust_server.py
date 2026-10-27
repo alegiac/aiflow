@@ -7,8 +7,8 @@ class TrustServerTests(unittest.TestCase):
     def test_install_both_and_preserve_existing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
-            (root/'.ai').mkdir()
-            (root/'.ai/config.json').write_text('{}')
+            (root/'.aiflow').mkdir()
+            (root/'.aiflow/config.json').write_text('{}')
             install(root,'both')
             for path in (root/'.agents/skills/aiflow-trust-server/SKILL.md',root/'.claude/skills/aiflow-trust-server/SKILL.md'):
                 self.assertTrue(path.exists())
