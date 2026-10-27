@@ -1,3 +1,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# Release artifacts
+/aiflow-release.zip
+/aiflow-release.zip.sha256
