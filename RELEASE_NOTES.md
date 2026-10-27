@@ -3,7 +3,7 @@
 - `aiflow day start` resumes sessions and synchronizes project documentation.
 - `aiflow day end --summary ... --next ...` closes tracking and writes a dated Markdown checkpoint.
 - `aiflow adopt` safely previews an existing repository; `--apply` initializes AIFlow and writes reviewable findings. Optional `--conversation` reads an explicit local export; private agent history is not automatically accessible.
-- `aiflow specs propose epic/task` creates draft Epic/Task with dedicated Markdown.
+- `aiflow epic create` and `aiflow task create` create draft Epic/Task with dedicated Markdown and automatically refresh project inventory.
 - `aiflow specs sync` updates the project inventory and consolidates explicitly approved decisions.
 - `aiflow specs record project|architecture` appends evidence-backed specification changes.
 - Jira/MCP integration is excluded from this release.
