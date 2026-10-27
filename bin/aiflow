@@ -526,13 +526,18 @@ def main(argv=None):
             sys.path.insert(0,str(ROOT))
             from installer import workflows
             workflows.ensure_schema(db)
-            if args.command=='decision': workflows.decision(root,db,args)
-            elif args.command=='approve': workflows.approval(root,db,args)
+            if args.command=='decision':
+                workflows.decision(root,db,args)
+                if args.action=='approve': sync_specs_after_change(root,db)
+            elif args.command=='approve':
+                workflows.approval(root,db,args)
+                sync_specs_after_change(root,db)
             elif args.command=='checkpoint': workflows.checkpoint(root,db,args)
             elif args.command=='recover': workflows.recovery(root,db,args)
             else:
                 args.kind=args.command.split('-',1)[1]
                 workflows.lifecycle(root,db,args)
+                sync_specs_after_change(root,db)
         elif args.command=='export': export(db,args)
         elif args.command=='report':
             sys.path.insert(0,str(ROOT))
