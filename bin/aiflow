@@ -513,6 +513,26 @@ def main(argv=None):
             print('Progetto:',root,'\nDatabase:',db_path(root),'\nFramework:',ROOT)
             for key in ('AGENTS.md','project.md','architecture.md','state/current.md'):
                 print(('OK' if (root/'.aiflow'/key).exists() else 'MISSING'),key)
+            import shutil
+            active=shutil.which('aiflow')
+            canonical=Path.home()/'.local/bin/aiflow'
+            print('PATH executable:',active or 'NOT FOUND')
+            print('Canonical launcher:',canonical)
+            if active and Path(active).resolve()!=Path(__file__).resolve():
+                print('WARNING: PATH aiflow differs from the running installation')
+            if canonical.exists() and canonical.resolve()!=Path(__file__).resolve():
+                print('WARNING: canonical launcher points to another installation')
+            for filename in ('AGENTS.md','CLAUDE.md'):
+                local=root/filename
+                if local.is_file():
+                    content=local.read_text(encoding='utf-8')
+                    if '.ai/' in content:
+                        print('WARNING: outdated .ai/ references in',local,'; run aiflow integrate both')
+            for directory in (root/'.agents/skills',root/'.claude/skills'):
+                if directory.is_dir():
+                    stale=[p for p in directory.glob('aiflow-*/SKILL.md') if '.ai/' in p.read_text(encoding='utf-8')]
+                    if stale:
+                        print('WARNING:',len(stale),'outdated local AIFlow skills in',directory,'; run aiflow integrate both')
         elif args.command=='epic':
             if args.action=='create': create_epic(root,db,args)
             elif args.action=='status': set_status(root,db,'epic',args)
