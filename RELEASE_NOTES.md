@@ -1,3 +1,10 @@
+## v1.4.2 — Canonical project directory
+
+- New projects use `.aiflow/` instead of `.ai/` for all framework state, configuration, SQLite database, Epic and Task Markdown, decisions, checkpoints, and adoption reports.
+- Codex and Claude integration paths, bundled skills, project documentation, and test fixtures follow the canonical directory.
+- No automatic migration: if a legacy `.ai/` directory exists, the CLI stops with an explicit error to avoid creating a second project state. Back up and rename the directory manually if needed.
+- The global framework installation location and upgrade command are unchanged.
+
 ## v1.4.1 — Safe adoption after initialization
 
 - Fix: `aiflow adopt --apply --force` now works after `aiflow init` without rerunning initialization.
