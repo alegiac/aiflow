@@ -1,3 +1,11 @@
+## v1.4.3 — Installation and PATH consistency
+
+- Installer and upgrade report duplicate `aiflow` executables and shell PATH shadowing.
+- Canonical launcher is `~/.local/bin/aiflow`; installer creates the symlink when absent and preserves conflicting existing files or symlinks with a warning.
+- `aiflow doctor` reports the active PATH executable and warns about stale `.ai/` references in project-local Codex/Claude instructions and installed AIFlow skills.
+- To fix PATH precedence: `export PATH="$HOME/.local/bin:$PATH"` and refresh the shell command cache (`hash -r` in bash, `rehash` in zsh).
+- Existing `.aiflow/` project data is unchanged.
+
 ## v1.4.2 — Canonical project directory
 
 - New projects use `.aiflow/` instead of `.ai/` for all framework state, configuration, SQLite database, Epic and Task Markdown, decisions, checkpoints, and adoption reports.
