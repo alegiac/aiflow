@@ -43,8 +43,6 @@ def sync(root, db):
         # Cross-project architecture decisions require explicit architecture scope.
     epics=db.execute('SELECT id,title,status FROM epics ORDER BY id').fetchall()
     for epic,title,status in epics:
-        tasks=db.execute('SELECT id,title,status FROM tasks WHERE epic_id=? ORDER BY id',(epic,)).fetchall()
-        for task,tt,ts in tasks:
     project=ai/'project.md'
     begin='<!-- aiflow:inventory:start -->'
     end='<!-- aiflow:inventory:end -->'
