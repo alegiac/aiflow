@@ -15,18 +15,25 @@ import zipfile
 
 REPO="alegiac/aiflow"
 API=f"https://api.github.com/repos/{REPO}/releases/latest"
+RELEASES=f"https://api.github.com/repos/{REPO}/releases?per_page=30"
 USER_AGENT="AIFlow-Installer/1.2"
 def fetch(url):
     req=urllib.request.Request(url,headers={"User-Agent":USER_AGENT,"Accept":"application/vnd.github+json"})
     with urllib.request.urlopen(req,timeout=25) as response:
         return response.read()
-def release():
-    data=json.loads(fetch(API))
+def release(beta=False):
+    if beta:
+        entries=json.loads(fetch(RELEASES))
+        data=next((r for r in entries if not r.get("draft") and r.get("prerelease")),None)
+        if data is None: raise RuntimeError("Nessuna prerelease disponibile")
+    else:
+        data=json.loads(fetch(API))
     asset=next((x for x in data.get("assets",[]) if x["name"]=="aiflow-release.zip"),None)
     checksum=next((x for x in data.get("assets",[]) if x["name"]=="aiflow-release.zip.sha256"),None)
     if not asset or not checksum:
         raise RuntimeError("Release incompleta: richiesti aiflow-release.zip e aiflow-release.zip.sha256")
     return data,asset,checksum
+
 def unpack_safe(data,destination):
     archive=destination/"download.zip";archive.write_bytes(data)
     with zipfile.ZipFile(archive) as z:
@@ -69,10 +76,17 @@ def execute():
     parser.add_argument("action",choices=["install","upgrade","check"])
     parser.add_argument("--prefix",default=os.environ.get("AIFLOW_INSTALL_DIR",str(Path.home()/".local/share/aiflow")))
     parser.add_argument("--yes",action="store_true",help="Non-interactive install/upgrade")
+    channel=parser.add_mutually_exclusive_group()
+    channel.add_argument("--beta",action="store_true",help="Ultima prerelease")
+    channel.add_argument("--dev",action="store_true",help="Ultimo main (non verificato da checksum di release)")
     args=parser.parse_args()
     target=Path(args.prefix).expanduser().resolve()
-    data,asset,checksum=release()
-    tag=data.get("tag_name","unknown")
+    if args.dev:
+        tag="main (development)"
+        asset=checksum=None
+    else:
+        data,asset,checksum=release(beta=args.beta)
+        tag=data.get("tag_name","unknown")
     print("Release GitHub:",tag)
     if args.action=="check":return
     target=wizard(args,target,tag)
@@ -81,10 +95,13 @@ def execute():
     if not args.yes and sys.stdin.isatty() and input("Procedere? [s/N]: ").lower() not in ("s","si","sì","y","yes"):return
     with tempfile.TemporaryDirectory(prefix="aiflow-install-") as td:
         tmp=Path(td)
-        content=fetch(asset["browser_download_url"])
-        expected=fetch(checksum["browser_download_url"]).decode().split()[0].lower()
-        actual=hashlib.sha256(content).hexdigest()
-        if expected!=actual: raise RuntimeError("SHA256 non corrispondente: installazione annullata")
+        if args.dev:
+            content=fetch(f"https://codeload.github.com/{REPO}/zip/refs/heads/main")
+        else:
+            content=fetch(asset["browser_download_url"])
+            expected=fetch(checksum["browser_download_url"]).decode().split()[0].lower()
+            actual=hashlib.sha256(content).hexdigest()
+            if expected!=actual: raise RuntimeError("SHA256 non corrispondente: installazione annullata")
         candidate=unpack_safe(content,tmp)
         subprocess.run([sys.executable,"-m","compileall","-q",str(candidate/"bin"),str(candidate/"installer")],check=True)
         # install to sibling staging dir; rollback on failure
