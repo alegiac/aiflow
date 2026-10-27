@@ -43,14 +43,8 @@ def sync(root, db):
         # Cross-project architecture decisions require explicit architecture scope.
     epics=db.execute('SELECT id,title,status FROM epics ORDER BY id').fetchall()
     for epic,title,status in epics:
-        marker='<!-- aiflow:epic:'+epic+' -->'
-        if _append_once(ai/'project.md',marker,marker+'\n- '+epic+': '+title+' ['+status+']'):
-            updated.append(str(ai/'project.md'))
         tasks=db.execute('SELECT id,title,status FROM tasks WHERE epic_id=? ORDER BY id',(epic,)).fetchall()
         for task,tt,ts in tasks:
-            marker='<!-- aiflow:task:'+epic+'/'+task+' -->'
-            if _append_once(ai/'epics'/epic/'epic.md',marker,marker+'\n- '+task+': '+tt+' ['+ts+']'):
-                updated.append(str(ai/'epics'/epic/'epic.md'))
     project=ai/'project.md'
     begin='<!-- aiflow:inventory:start -->'
     end='<!-- aiflow:inventory:end -->'
@@ -71,35 +65,10 @@ def sync(root, db):
         if refreshed!=original:
             project.write_text(refreshed,encoding='utf-8')
             updated.append(str(project))
-    # Append a timestamped state snapshot without replacing user-authored notes.
-    current=ai/'state'/'current.md'
-    snapshot=['## AIFlow snapshot '+_stamp(),'','### Epics']
-    snapshot += ['- '+e+': '+t+' ['+s+']' for e,t,s in epics]
-    snapshot += ['','### Pending decisions']
-    snapshot += ['- DEC-'+str(i)+' ('+ref+'): '+stmt for i,ref,stmt in db.execute("SELECT id,ref,statement FROM decisions WHERE status='proposed' ORDER BY id")]
-    if current.exists():
-        with current.open('a',encoding='utf-8') as f:f.write('\n'+'\n'.join(snapshot)+'\n')
-        updated.append(str(current))
+    # The current-state snapshot is updated only when the managed inventory changes.
+    # Do not append a new timestamped block for every CLI command.
     return updated
 
-
-def propose(root,db,args):
-    """Create draft Epic/Task markdown only on explicit command."""
-    import argparse
-    import sys
-    from importlib.util import spec_from_file_location, module_from_spec
-    cli=Path(__file__).resolve().parents[1]/'bin'/'aiflow'
-    spec=spec_from_file_location('aiflow_cli',str(cli))
-    if spec is None:
-        from importlib.machinery import SourceFileLoader
-        mod=SourceFileLoader('aiflow_cli',str(cli)).load_module()
-    else:
-        mod=module_from_spec(spec);spec.loader.exec_module(mod)
-    if args.kind=='epic':
-        mod.create_epic(root,db,argparse.Namespace(title=args.title,id=None))
-    else:
-        mod.create_task(root,db,argparse.Namespace(epic=args.epic,title=args.title,id=None))
-    sync(root,db)
 
 def record(root,db,args):
     """Explicit, evidence-backed canonical project or architecture specification."""
