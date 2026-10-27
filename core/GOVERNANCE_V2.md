@@ -2,11 +2,11 @@
 
 ## Sources of truth
 
-- SQLite in `.ai/state/aiflow.sqlite3`: IDs, lifecycle state, timestamps, approvals, events and activity tracking.
-- `.ai/epics/<ID>/epic.md`, `analysis.md`, `ux.md`: functional requirements, UX and scope.
-- `.ai/epics/<ID>/tasks/<ID>/task.md`, `report.md`: implementation contract and verifiable outcome.
-- `.ai/epics/<ID>/decisions.md`, `approvals.md`, `checkpoints.md`: durable project evidence.
-- `.ai/state/checkpoints.md`: chronological recovery journal.
+- SQLite in `.aiflow/state/aiflow.sqlite3`: IDs, lifecycle state, timestamps, approvals, events and activity tracking.
+- `.aiflow/epics/<ID>/epic.md`, `analysis.md`, `ux.md`: functional requirements, UX and scope.
+- `.aiflow/epics/<ID>/tasks/<ID>/task.md`, `report.md`: implementation contract and verifiable outcome.
+- `.aiflow/epics/<ID>/decisions.md`, `approvals.md`, `checkpoints.md`: durable project evidence.
+- `.aiflow/state/checkpoints.md`: chronological recovery journal.
 
 Agents **must not** edit the SQLite database directly or manufacture user confirmations. CLI `--by` and `--evidence` are audit fields, not proof of identity. Approval requires an actual explicit user instruction in the current interaction; agents must not self-approve. All `analysis.md`, `ux.md`, and `task.md` content is authored through discussion and validated against the repository. Never invent business requirements.
 
