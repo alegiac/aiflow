@@ -1,4 +1,4 @@
-name: Publish AIFlow v1.4.0 (one-time)
+name: Publish AIFlow v1.4.1 (one-time)
 on:
   push:
     branches: [main]
@@ -7,7 +7,7 @@ permissions:
 jobs:
   publish:
     if: >-
-      startsWith(github.event.head_commit.message, 'release: AIFlow v1.4.0')
+      startsWith(github.event.head_commit.message, 'release: AIFlow v1.4.1')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,4 +31,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create v1.4.0 aiflow-release.zip aiflow-release.zip.sha256 --target "$GITHUB_SHA" --title "AIFlow v1.4.0" --generate-notes
+          gh release create v1.4.1 aiflow-release.zip aiflow-release.zip.sha256 --target "$GITHUB_SHA" --title "AIFlow v1.4.1" --generate-notes
