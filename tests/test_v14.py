@@ -89,3 +89,24 @@ class TestV14(unittest.TestCase):
         self.cli('specs','sync')
         self.assertEqual(before,project.read_text())
         self.assertEqual(project.read_text().count('<!-- aiflow:inventory:start -->'),1)
+
+    def test_adopt_force_preserves_initialized_project(self):
+        (self.root/'composer.json').write_text('{"require":{"laravel/framework":"^13.0"}}')
+        self.cli('init')
+        cfg=self.root/'.ai/config.json'
+        project=self.root/'.ai/project.md'
+        original_cfg=cfg.read_bytes()
+        self.cli('epic','create','Existing epic')
+        original_project=project.read_bytes()
+        epic=self.root/'.ai/epics/EPIC-001/epic.md'
+        original_epic=epic.read_bytes()
+        self.assertNotEqual(self.cli('adopt','--apply',ok=False).returncode,0)
+        self.assertNotEqual(self.cli('adopt','--force',ok=False).returncode,0)
+        self.cli('adopt','--apply','--force')
+        self.assertEqual(cfg.read_bytes(),original_cfg)
+        self.assertEqual(project.read_bytes(),original_project)
+        self.assertEqual(epic.read_bytes(),original_epic)
+        self.assertTrue((self.root/'.ai/adoption-review.md').exists())
+        self.assertTrue((self.root/'.ai/adoption-review.json').exists())
+        self.assertTrue(json.loads((self.root/'.ai/adoption-review.json').read_text())['existing_initialization_preserved'])
+        self.assertNotEqual(self.cli('adopt','--apply','--force',ok=False).returncode,0)
