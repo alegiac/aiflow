@@ -1,7 +1,7 @@
 ## v1.4.1 — Safe adoption after initialization
 
 - Fix: `aiflow adopt --apply --force` now works after `aiflow init` without rerunning initialization.
-- Existing `.ai/config.json`, database, selected profiles, Epic/Task documents and project specifications remain untouched.
+- Existing `.aiflow/config.json`, database, selected profiles, Epic/Task documents and project specifications remain untouched.
 - Existing adoption reports are not silently overwritten; archive them before retrying.
 - `--force` requires `--apply`; a plain `aiflow adopt` remains a safe read-only preview for projects not yet initialized.
 - Regression coverage for `init → epic create → adopt --apply --force`.
