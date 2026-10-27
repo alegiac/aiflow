@@ -397,7 +397,7 @@ def parser():
     ad=sub.add_parser('adopt',help='Preview or adopt an existing project')
     ad.add_argument('path',nargs='?'); ad.add_argument('--conversation'); ad.add_argument('--apply',action='store_true')
     tracker=sub.add_parser('tracker',help='Jira tracker and worklog bridge').add_subparsers(dest='action',required=True)
-    for action in ('status','map','pull','worklog'):
+    for action in ('status','map','pull','sync','worklog'):
         t=tracker.add_parser(action)
         if action=='map':
             t.add_argument('local_id'); t.add_argument('remote_key')
