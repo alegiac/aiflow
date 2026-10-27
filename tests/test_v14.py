@@ -46,8 +46,6 @@ class TestV14(unittest.TestCase):
         report=json.loads((self.root/'.ai/adoption-review.json').read_text())
         self.assertGreaterEqual(report['conversation']['characters'],10)
         self.assertFalse(list((self.root/'.ai/epics').iterdir()))
-    def test_tracker_mapping_and_dry_run(self):
+    def test_tracker_is_not_exposed(self):
         self.cli('init')
-        self.cli('tracker','map','EPIC-001/TASK-001','TEST-12')
-        self.assertIn('TEST-12',self.cli('tracker','status').stdout)
-        self.assertIn('sync',self.cli('tracker','--help').stdout)
+        self.assertNotIn('tracker',self.cli('--help').stdout)
