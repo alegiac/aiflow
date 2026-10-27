@@ -480,6 +480,8 @@ def main(argv=None):
             if args.action=='sync':
                 updated=specsync.sync(root,db)
                 print('Specification documents updated:',len(updated))
+            elif args.action=='record':
+                specsync.record(root,db,args)
             else:
                 if args.kind=='task' and not args.epic: raise ValueError('Task proposal requires --epic')
                 specsync.propose(root,db,args)
