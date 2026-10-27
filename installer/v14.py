@@ -44,6 +44,11 @@ def day(root, db, args):
     if row: db.execute('UPDATE sessions SET ended_at=? WHERE id=?',(now,row[0]))
     summary = args.summary or 'Day closed; review open tasks and next steps'
     db.execute('INSERT INTO events(created_at,kind,ref,details) VALUES(?,?,?,?)',(now,'day.end',date,summary))
+    from installer import workflows
+    workflows.ensure_schema(db)
+    next_step = args.next or 'Review open tasks at next day start'
+    ref = 'project'
+    db.execute('INSERT INTO checkpoints(ref,summary,next_step,created_at) VALUES(?,?,?,?)',(ref,summary,next_step,now))
     db.commit()
     result = dict(date=date,session_id=row[0] if row else None,stopped_activity=active[0] if active else None,summary=summary)
     if args.json: print(json.dumps(result,ensure_ascii=False,indent=2))
@@ -83,19 +88,25 @@ def adopt(root, args):
     history=_git(root,'log','-8','--pretty=format:%h %s')
     branch=_git(root,'branch','--show-current')
     conversation=None
+    proposals=[]
     if args.conversation:
         file=Path(args.conversation).expanduser().resolve()
         if not file.is_file() or file.stat().st_size>2_000_000: raise ValueError('Conversation export missing or larger than 2 MB')
         if file.suffix.lower() not in ('.txt','.md','.json'): raise ValueError('Only txt, md, json conversation exports supported')
         raw=file.read_text(encoding='utf-8')
-        conversation=dict(path=str(file),characters=len(raw),preview=raw[:1200])
-    report=dict(project=str(root),branch=branch,top_level=names[:100],profiles=detected,evidence=evidence,recent_commits=history.splitlines(),conversation=conversation,warning='Inferred facts need human review; conversation is not automatically imported from provider private history')
+        import hashlib
+        # Extract review candidates, not approved decisions. Keep transcript outside project.
+        for line in raw.splitlines():
+            stripped=line.strip()
+            if len(stripped)>20 and re.search(r'(?i)\\b(todo|task|epic|decision|deciso|implementare|fixme|bug)\\b',stripped):
+                proposals.append(dict(source='conversation:'+file.name,excerpt=stripped[:300],status='needs-review'))
+                if len(proposals)>=100: break
+        conversation=dict(path=str(file),characters=len(raw),sha256=hashlib.sha256(raw.encode()).hexdigest(),review_candidates=len(proposals))
+    report=dict(project=str(root),branch=branch,top_level=names[:100],profiles=detected,evidence=evidence,recent_commits=history.splitlines(),conversation=conversation,proposals=proposals,warning='Inferred facts need human review; conversation is not automatically imported from provider private history')
     if not args.apply:
         print(json.dumps(report,ensure_ascii=False,indent=2))
         print('DRY RUN: no files changed. Use --apply to initialize and write a review report.')
         return
-    import argparse
-    from importlib.machinery import SourceFileLoader
     # Invoke the existing CLI init to preserve schema and scaffolding behavior.
     cli=Path(__file__).resolve().parents[1]/'bin'/'aiflow'
     profiles=detected or ['php-laravel']
