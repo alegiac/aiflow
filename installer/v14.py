@@ -38,8 +38,17 @@ def day(root, db, args):
     row = db.execute("SELECT id FROM sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1").fetchone()
     active = db.execute("SELECT id,epic_id,task_id,started_at FROM activities WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1").fetchone()
     if not row and not active:
-        result = dict(date=date,already_closed=True)
-        print(json.dumps(result) if args.json else 'Day already closed')
+        from installer import digest
+        try:
+            delivery=digest.generate(root,db,date,send=not args.no_digest)
+        except Exception as exc:
+            delivery={'mail_status':'failed','mail_error':str(exc),'digest':None}
+        result = dict(date=date,already_closed=True,**delivery)
+        if args.json: print(json.dumps(result,ensure_ascii=False,indent=2))
+        else:
+            print('Day already closed')
+            print('Digest:',delivery.get('digest') or 'unavailable','| email:',delivery['mail_status'])
+            if delivery.get('mail_error'): print('Digest warning:',delivery['mail_error'])
         return
     now = dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')
     if active: db.execute('UPDATE activities SET ended_at=? WHERE id=?',(now,active[0]))
