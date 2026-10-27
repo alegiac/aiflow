@@ -71,6 +71,40 @@ def wizard(args, target, tag):
         print(f"\nOperazione: {args.action} | release {tag} | destinazione {target}")
     return target
 
+def reconcile_launcher(target):
+    """Maintain the canonical ~/.local/bin/aiflow symlink without clobbering user files."""
+    launcher=Path.home()/".local"/"bin"/"aiflow"
+    desired=target/"bin"/"aiflow"
+    launcher.parent.mkdir(parents=True,exist_ok=True)
+    if launcher.is_symlink():
+        if launcher.resolve()!=desired.resolve():
+            print(f"WARNING: existing launcher {launcher} points to {launcher.resolve()}; not replacing it.")
+        return
+    if launcher.exists():
+        print(f"WARNING: {launcher} is an existing file; not overwriting it.")
+        return
+    launcher.symlink_to(desired)
+    print(f"Launcher: {launcher} -> {desired}")
+
+def diagnose_path(target):
+    """Report command shadowing; PATH precedence is owned by the user's shell."""
+    launcher=Path.home()/".local"/"bin"/"aiflow"
+    matches=[]
+    for entry in os.environ.get("PATH","").split(os.pathsep):
+        if not entry: continue
+        candidate=Path(entry).expanduser()/"aiflow"
+        if candidate.is_file() and os.access(candidate,os.X_OK):
+            if str(candidate) not in [str(p) for p in matches]:
+                matches.append(candidate)
+    print("AIFlow executables in PATH (resolution order):")
+    for i, candidate in enumerate(matches,1):
+        print(f"  {i}. {candidate}" + (" [canonical]" if candidate==launcher else ""))
+    if matches and matches[0].resolve()!= (target/"bin"/"aiflow").resolve():
+        print(f"WARNING: shell resolves aiflow to {matches[0]}, not {launcher}.")
+        print('Fix shell PATH order: export PATH="$HOME/.local/bin:$PATH"')
+    if not matches:
+        print('Add canonical launcher to PATH: export PATH="$HOME/.local/bin:$PATH"')
+
 def execute():
     parser=argparse.ArgumentParser(description="AIFlow install / upgrade from GitHub Releases")
     parser.add_argument("action",choices=["install","upgrade","check"])
@@ -121,7 +155,9 @@ def execute():
         finally:
             if staging.exists():shutil.rmtree(staging)
     print(f"Installato {tag} in {target}")
-    print(f'Aggiungi al PATH: export PATH="{target}/bin:$PATH"')
+    reconcile_launcher(target)
+    diagnose_path(target)
+    print('Canonical PATH: export PATH="$HOME/.local/bin:$PATH"')
     print("I progetti (.aiflow/) non sono stati modificati.")
     print("Dopo upgrade, dentro ogni progetto: aiflow integrate both")
 if __name__=="__main__":
