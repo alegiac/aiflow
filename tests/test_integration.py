@@ -28,4 +28,4 @@ class IntegrationTests(unittest.TestCase):
             self.assertTrue((root/'.agents/skills/aiflow-analitica/SKILL.md').exists())
             self.assertTrue((root/'.claude/skills/aiflow-end-task/SKILL.md').exists())
             self.assertTrue((root/'.claude/agents/aiflow-code-reviewer.md').exists())
-            self.assertEqual(json.loads((root/'.ai/config.json').read_text())['integrations'],['claude','codex'])
+            self.assertEqual(json.loads((root/'.aiflow/config.json').read_text())['integrations'],['claude','codex'])
