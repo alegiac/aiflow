@@ -95,7 +95,7 @@ def init(root, db, args):
     templates = {
       'project.md': f'# Progetto\n\nNome: {args.name or root.name}\n\n## Scopo\n\nDa definire con l’utente.\n',
       'architecture.md': '# Architettura attuale\n\nDa rilevare dalla repository. Non inventare dettagli.\n',
-      'AGENTS.md': '# Istruzioni agenti\n\nLeggi `.ai/project.md`, `.ai/architecture.md`, `.ai/state/current.md`, poi l’Epic e il Task attivi.\nConsulta `.ai/profiles/README.md` e applica insieme i profili attivi pertinenti al task.\nLe decisioni sono bozze finché l’utente non le approva esplicitamente.\nNon inventare requisiti. Usa le skill del framework e `aiflow` per registrare gli stati.\nNon eseguire commit, push, deploy o operazioni server senza autorizzazione esplicita.\n',
+      'AGENTS.md': '# Istruzioni agenti\n\nLeggi `.ai/project.md`, `.ai/architecture.md`, `.ai/state/current.md`, poi l’Epic e il Task attivi.\nConsulta `.ai/profiles/README.md` e applica insieme i profili attivi pertinenti al task.\nLe decisioni sono bozze finché l’utente non le approva esplicitamente.\nNon inventare requisiti. Usa le skill del framework e `aiflow` per registrare gli stati.\nDopo ogni decisione approvata esegui `aiflow specs sync`; usa `aiflow specs record project|architecture` solo con approvazione ed evidenza.\nPer nuove attività usa i comandi esistenti `aiflow epic create` e `aiflow task create`: generano i Markdown dedicati e aggiornano automaticamente il riepilogo del progetto.\nA inizio/fine giornata usa `aiflow day start|end` per riallineare stato e specifiche.\nNon eseguire commit, push, deploy o operazioni server senza autorizzazione esplicita.\n',
       'state/current.md': '# Stato corrente\n\nUsa `aiflow status` per lo stato operativo.\n',
       'state/checkpoints.md': '# Checkpoint\n\n',
       'state/logbook.md': '# Logbook\n\n',
@@ -205,6 +205,13 @@ def profile_command(root, db, args):
     print('Profili attivi:', ', '.join(updated))
 
 
+def sync_specs_after_change(root, db):
+    """Keep generated Markdown aligned after successful local lifecycle mutations."""
+    sys.path.insert(0, str(ROOT))
+    from installer import specsync
+    specsync.sync(root, db)
+
+
 def create_epic(root, db, args):
     db.execute('BEGIN IMMEDIATE')
     eid = alloc(db,'epic',args.id,'EPIC')
@@ -221,6 +228,7 @@ def create_epic(root, db, args):
     write_new(d/'ux.md',f'# UX — {eid}\n\n## Flussi\n\n## Stati e messaggi\n\n## Accessibilità\n\n## Riferimenti Figma\n\n')
     event(db,'epic.create',eid,args.title)
     db.commit()
+    sync_specs_after_change(root, db)
     print(f'{eid}: {args.title}\n{d}')
 
 
@@ -241,6 +249,7 @@ def create_task(root,db,args):
     write_new(d/'report.md',f'# Resoconto — {args.epic}/{tid}\n\n## Attività svolte\n\n## File modificati\n\n## Test eseguiti ed esito\n\n## Impatti e problemi\n\n## Decisioni e checkpoint\n\n## Attività residue\n\n')
     event(db,'task.create',f'{args.epic}/{tid}',args.title)
     db.commit()
+    sync_specs_after_change(root, db)
     print(f'{args.epic}/{tid}: {args.title}\n{d}')
 
 
@@ -270,6 +279,7 @@ def set_status(root,db,kind,args):
     atomic_write(path,content)
     event(db,kind+'.status',ref,args.status)
     db.commit()
+    sync_specs_after_change(root, db)
     print(ref, '→', args.status)
 
 
@@ -390,6 +400,17 @@ def parser():
     sub=p.add_subparsers(dest='command')
     s=sub.add_parser('init'); s.add_argument('--name'); s.add_argument('--profile',default='php-laravel')
     sub.add_parser('status'); sub.add_parser('doctor')
+    dayp=sub.add_parser('day',help='Daily start/end workflow').add_subparsers(dest='action',required=True)
+    for action in ('start','end'):
+        d=dayp.add_parser(action); d.add_argument('--date'); d.add_argument('--json',action='store_true')
+        if action=='end': d.add_argument('--summary'); d.add_argument('--next')
+    specs=sub.add_parser('specs',help='Consolidate approved project specs').add_subparsers(dest='action',required=True)
+    specs.add_parser('sync')
+    record=specs.add_parser('record',help='Record approved project or architecture changes')
+    record.add_argument('scope',choices=['project','architecture']); record.add_argument('text')
+    record.add_argument('--by',required=True); record.add_argument('--evidence',required=True)
+    ad=sub.add_parser('adopt',help='Preview or adopt an existing project')
+    ad.add_argument('path',nargs='?'); ad.add_argument('--conversation'); ad.add_argument('--apply',action='store_true')
     profile = sub.add_parser('profile', help='Gestisci i profili tecnologici del progetto')
     profile_sub = profile.add_subparsers(dest='action', required=True)
     for action in ('list', 'available', 'sync'):
@@ -453,12 +474,29 @@ def main(argv=None):
     args=parser().parse_args(argv)
     root=project_root()
     try:
+        if args.command == 'adopt':
+            sys.path.insert(0,str(ROOT))
+            from installer.v14 import adopt
+            adopt(Path(args.path).expanduser().resolve() if args.path else root,args)
+            return 0
         if args.command == 'profile' and args.action in ('available', 'walkthrough'):
             profile_command(root, None, args)
             return 0
         db=connect(root,initialize=args.command=='init')
         if args.command=='init': init(root,db,args)
         elif args.command=='profile': profile_command(root,db,args)
+        elif args.command=='specs':
+            sys.path.insert(0,str(ROOT))
+            from installer import specsync
+            if args.action=='sync':
+                updated=specsync.sync(root,db)
+                print('Specification documents updated:',len(updated))
+            elif args.action=='record':
+                specsync.record(root,db,args)
+        elif args.command=='day':
+            sys.path.insert(0,str(ROOT))
+            from installer.v14 import day
+            day(root,db,args)
         elif args.command=='status': show_status(db)
         elif args.command=='integrate':
             sys.path.insert(0,str(ROOT))
@@ -489,13 +527,18 @@ def main(argv=None):
             sys.path.insert(0,str(ROOT))
             from installer import workflows
             workflows.ensure_schema(db)
-            if args.command=='decision': workflows.decision(root,db,args)
-            elif args.command=='approve': workflows.approval(root,db,args)
+            if args.command=='decision':
+                workflows.decision(root,db,args)
+                if args.action=='approve': sync_specs_after_change(root,db)
+            elif args.command=='approve':
+                workflows.approval(root,db,args)
+                sync_specs_after_change(root,db)
             elif args.command=='checkpoint': workflows.checkpoint(root,db,args)
             elif args.command=='recover': workflows.recovery(root,db,args)
             else:
                 args.kind=args.command.split('-',1)[1]
                 workflows.lifecycle(root,db,args)
+                sync_specs_after_change(root,db)
         elif args.command=='export': export(db,args)
         elif args.command=='report':
             sys.path.insert(0,str(ROOT))

@@ -1,0 +1,33 @@
+name: Publish AIFlow v1.4.0 (one-time)
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  publish:
+    if: startsWith(github.event.head_commit.message, 'release: AIFlow v1.4.0')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate complete release
+        run: |
+          python3 -m compileall -q bin installer tools tests
+          python3 tools/validate_profiles.py
+          python3 -m unittest discover -s tests -v
+      - name: Package and checksum
+        run: |
+          mkdir -p dist/ai-development-framework
+          cp -R bin installer core adapters profiles tools tests README.md DAILY_DIGEST.md RELEASE_NOTES.md install.sh upgrade.sh dist/ai-development-framework/
+          find dist -type d -name __pycache__ -prune -exec rm -rf {} +
+          (cd dist && zip -qr ../aiflow-release.zip ai-development-framework)
+          sha256sum aiflow-release.zip > aiflow-release.zip.sha256
+          unzip -t aiflow-release.zip
+      - name: Create tag and GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v1.4.0 aiflow-release.zip aiflow-release.zip.sha256 --target "$GITHUB_SHA" --title "AIFlow v1.4.0" --generate-notes
