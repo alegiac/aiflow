@@ -95,7 +95,7 @@ def init(root, db, args):
     templates = {
       'project.md': f'# Progetto\n\nNome: {args.name or root.name}\n\n## Scopo\n\nDa definire con l’utente.\n',
       'architecture.md': '# Architettura attuale\n\nDa rilevare dalla repository. Non inventare dettagli.\n',
-      'AGENTS.md': '# Istruzioni agenti\n\nLeggi `.ai/project.md`, `.ai/architecture.md`, `.ai/state/current.md`, poi l’Epic e il Task attivi.\nConsulta `.ai/profiles/README.md` e applica insieme i profili attivi pertinenti al task.\nLe decisioni sono bozze finché l’utente non le approva esplicitamente.\nNon inventare requisiti. Usa le skill del framework e `aiflow` per registrare gli stati.\nNon eseguire commit, push, deploy o operazioni server senza autorizzazione esplicita.\n',
+      'AGENTS.md': '# Istruzioni agenti\n\nLeggi `.ai/project.md`, `.ai/architecture.md`, `.ai/state/current.md`, poi l’Epic e il Task attivi.\nConsulta `.ai/profiles/README.md` e applica insieme i profili attivi pertinenti al task.\nLe decisioni sono bozze finché l’utente non le approva esplicitamente.\nNon inventare requisiti. Usa le skill del framework e `aiflow` per registrare gli stati.\nDopo ogni decisione approvata esegui `aiflow specs sync`; usa `aiflow specs record project|architecture` solo con approvazione ed evidenza.\nPer nuove attività usa `aiflow specs propose epic|task` e mantieni i Markdown dedicati aggiornati.\nA inizio/fine giornata usa `aiflow day start|end` per riallineare stato e specifiche.\nNon eseguire commit, push, deploy o operazioni server senza autorizzazione esplicita.\n',
       'state/current.md': '# Stato corrente\n\nUsa `aiflow status` per lo stato operativo.\n',
       'state/checkpoints.md': '# Checkpoint\n\n',
       'state/logbook.md': '# Logbook\n\n',
