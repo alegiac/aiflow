@@ -18,6 +18,8 @@ def day(root, db, args):
     except ValueError:
         raise ValueError('Invalid date: use YYYY-MM-DD')
     if args.action == 'start':
+        from installer import specsync
+        specsync.sync(root,db)
         existing = db.execute("SELECT id FROM sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1").fetchone()
         if not existing:
             now = dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')
@@ -50,7 +52,12 @@ def day(root, db, args):
     ref = 'project'
     db.execute('INSERT INTO checkpoints(ref,summary,next_step,created_at) VALUES(?,?,?,?)',(ref,summary,next_step,now))
     db.commit()
-    result = dict(date=date,session_id=row[0] if row else None,stopped_activity=active[0] if active else None,summary=summary)
+    from installer import specsync
+    updated=specsync.sync(root,db)
+    checkpoint_path=root/'.ai'/'state'/'checkpoints.md'
+    with checkpoint_path.open('a',encoding='utf-8') as f:
+        f.write('\\n## Day '+date+' — '+now+'\\n\\n'+summary+'\\n\\nNext: '+next_step+'\\n')
+    result = dict(date=date,updated_specs=len(updated),session_id=row[0] if row else None,stopped_activity=active[0] if active else None,summary=summary)
     if args.json: print(json.dumps(result,ensure_ascii=False,indent=2))
     else: print('AIFlow day end:',date,'\n',summary)
 
