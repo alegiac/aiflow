@@ -48,6 +48,12 @@ class DigestTests(unittest.TestCase):
         self.assertEqual(first['mail_status'],'sent')
         self.assertEqual(second['mail_status'],'already_sent')
         self.assertEqual(sender.call_count,1)
+    def test_force_send_overrides_successful_delivery(self):
+        with patch.object(digest,'send_mail',return_value=('sent',None)) as sender:
+            digest.generate(self.root,self.db,self.day)
+            again=digest.generate(self.root,self.db,self.day,force_send=True)
+        self.assertEqual(again['mail_status'],'sent')
+        self.assertEqual(sender.call_count,2)
     def test_failed_delivery_is_retryable(self):
         with patch.object(digest,'send_mail',side_effect=[('failed','temporary'),('sent',None)]) as sender:
             self.assertEqual(digest.generate(self.root,self.db,self.day)['mail_status'],'failed')

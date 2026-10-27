@@ -117,7 +117,7 @@ def send_mail(project,date,page,plain):
     except (OSError,smtplib.SMTPException,ValueError) as exc:
         return 'failed',str(exc)
 
-def generate(root,db,date,send=True):
+def generate(root,db,date,send=True,force_send=False):
     """Persist report before sending; never let SMTP failures break day end."""
     state=root/'.aiflow'/'state'/'digest'
     state.mkdir(parents=True,exist_ok=True)
@@ -130,7 +130,7 @@ def generate(root,db,date,send=True):
     try: previous=json.loads(ledger.read_text(encoding='utf-8')) if ledger.exists() else {}
     except (OSError,ValueError): previous={}
     if not send: status='skipped';error=None
-    elif previous.get('status')=='sent': status='already_sent';error=None
+    elif previous.get('status')=='sent' and not force_send: status='already_sent';error=None
     else: status,error=send_mail(root.name,date,page,plain)
     if status!='already_sent':
         ledger.write_text(json.dumps({'date':date,'status':status,'error':error},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')

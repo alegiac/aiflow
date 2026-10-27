@@ -1,3 +1,9 @@
+## v1.5.1 — Digest CLI and already-closed day fix
+
+- `aiflow digest` supports `--date`, `--format html`, `--send`, `--force-send`, `--json`.
+- `aiflow day end` generates and optionally sends the digest even if the day is already closed.
+- Explicit force-send overrides the successful-delivery guard; default deduplication remains.
+
 ## v1.5.0 — Project-scoped automatic daily email
 
 - `aiflow day end` creates a project-specific HTML and plain-text digest and sends it via SMTP by default when credentials are configured.

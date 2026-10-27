@@ -1,3 +1,7 @@
+## Correzione v1.5.1 — generazione manuale e giornata già chiusa
+
+`aiflow digest` stampa il riepilogo del progetto corrente, generando i file HTML e testo. Opzioni: `--date YYYY-MM-DD`, `--format html` (stampa il percorso HTML), `--send` (invio SMTP), `--force-send` (reinvia anche se già inviato). Il digest viene generato anche se `aiflow day end` trova una giornata già chiusa. L'invio non configurato o fallito non impedisce la creazione dei file.
+
 # AIFlow v1.5.0 — Daily Digest per progetto
 
 Quando esegui `aiflow day end --summary "..." --next "..."`, AIFlow genera automaticamente **un report per il progetto corrente** e prova a inviarlo via SMTP. Ogni progetto produce una propria email, non un digest globale. L'invio è predefinito; `--no-digest` salva comunque il report ma salta l'email.
