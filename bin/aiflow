@@ -156,9 +156,27 @@ def sync_project_profiles(root, profiles):
     return dest / 'README.md'
 
 
+def profile_walkthrough(root, name):
+    names = available_profiles()
+    if name not in names:
+        raise ValueError('Profilo sconosciuto: ' + name + '. Disponibili: ' + ', '.join(names))
+    source = ROOT / 'profiles' / name / 'PROFILE.md'
+    content = source.read_text(encoding='utf-8')
+    print('AIFlow profile walkthrough: ' + name)
+    print('Source: ' + str(source))
+    print()
+    print(content)
+    print('---')
+    print('Walkthrough completed. Review each rule against the actual project stack and versions.')
+    print('Profile guidance does not authorize installs, deployments, or architectural decisions.')
+
+
 def profile_command(root, db, args):
     if args.action == 'available':
         for name in available_profiles(): print(name)
+        return
+    if args.action == 'walkthrough':
+        profile_walkthrough(root, args.name)
         return
     data, current = read_project_profiles(root)
     if args.action == 'list':
@@ -376,6 +394,7 @@ def parser():
     profile_sub = profile.add_subparsers(dest='action', required=True)
     for action in ('list', 'available', 'sync'):
         profile_sub.add_parser(action)
+    profile_sub.add_parser('walkthrough', help='Mostra tutte le regole del profilo').add_argument('name')
     for action in ('add', 'remove'):
         profile_sub.add_parser(action).add_argument('profiles', help='Slug separati da virgola')
     integration=sub.add_parser('integrate',help='Installa skill e istruzioni locali per Codex/Claude Code')
@@ -434,7 +453,7 @@ def main(argv=None):
     args=parser().parse_args(argv)
     root=project_root()
     try:
-        if args.command == 'profile' and args.action == 'available':
+        if args.command == 'profile' and args.action in ('available', 'walkthrough'):
             profile_command(root, None, args)
             return 0
         db=connect(root,initialize=args.command=='init')
