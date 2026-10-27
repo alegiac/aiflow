@@ -411,6 +411,7 @@ def parser():
     record.add_argument('--by',required=True); record.add_argument('--evidence',required=True)
     ad=sub.add_parser('adopt',help='Preview or adopt an existing project')
     ad.add_argument('path',nargs='?'); ad.add_argument('--conversation'); ad.add_argument('--apply',action='store_true')
+    ad.add_argument('--force',action='store_true',help='Adopt an already initialized project without overwriting existing AIFlow data (requires --apply)')
     profile = sub.add_parser('profile', help='Gestisci i profili tecnologici del progetto')
     profile_sub = profile.add_subparsers(dest='action', required=True)
     for action in ('list', 'available', 'sync'):
