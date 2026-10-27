@@ -61,13 +61,13 @@ def sync(root, db):
             inventory.append('  - '+tid+': '+tt+' ['+ts+']')
     if project.exists():
         original=project.read_text(encoding='utf-8')
-        block=begin+'\\n'+'\\n'.join(inventory)+'\\n'+end
+        block=begin+'\n'+'\n'.join(inventory)+'\n'+end
         if begin in original and end in original:
             prefix=original.split(begin,1)[0]
             suffix=original.split(end,1)[1]
             refreshed=prefix+block+suffix
         else:
-            refreshed=original.rstrip()+'\\n\\n'+block+'\\n'
+            refreshed=original.rstrip()+'\n\n'+block+'\n'
         if refreshed!=original:
             project.write_text(refreshed,encoding='utf-8')
             updated.append(str(project))
@@ -109,7 +109,7 @@ def record(root,db,args):
     dest=root/'.ai'/('architecture.md' if args.scope=='architecture' else 'project.md')
     digest=hashlib.sha256((args.scope+'\\0'+args.text.strip()+'\\0'+args.evidence.strip()).encode()).hexdigest()[:16]
     marker='<!-- aiflow:spec:'+digest+' -->'
-    section=marker+'\\n### Verified update ('+_stamp()+')\\n\\n'+args.text.strip()+'\\n\\nEvidence: '+args.evidence.strip()+'; approved by: '+args.by.strip()+'\\n'
+    section=marker+'\n### Verified update ('+_stamp()+')\n\n'+args.text.strip()+'\n\nEvidence: '+args.evidence.strip()+'; approved by: '+args.by.strip()+'\n'
     changed=_append_once(dest,marker,section)
     db.execute('INSERT INTO events(created_at,kind,ref,details) VALUES(?,?,?,?)',(_stamp(),'spec.record',args.scope,digest))
     db.commit()
