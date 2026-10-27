@@ -71,7 +71,12 @@ def _git(root, *args):
 
 def adopt(root, args):
     if not root.is_dir(): raise ValueError('Project directory not found')
-    if (root/'.ai'/'config.json').exists(): raise ValueError('AIFlow already initialized: refusing to overwrite')
+    initialized=(root/'.ai'/'config.json').exists()
+    if initialized and not args.force:
+        raise ValueError('AIFlow already initialized: use --force to adopt without reinitializing or overwriting existing .ai data')
+    if args.force and not args.apply:
+        raise ValueError('--force requires --apply (run a normal preview first)')
+
     skip={'.git','.ai','node_modules','vendor','.venv','venv','dist','build'}
     names=[]
     for p in sorted(root.iterdir()):
@@ -120,9 +125,16 @@ def adopt(root, args):
     available={p.parent.name for p in (Path(__file__).resolve().parents[1]/'profiles').glob('*/PROFILE.md')}
     profiles=[p for p in profiles if p in available] or ['php-laravel']
     env=os.environ.copy(); env['AIFLOW_PROJECT']=str(root)
-    result=subprocess.run([os.environ.get('PYTHON',os.sys.executable),str(cli),'init','--profile',','.join(profiles)],cwd=root,env=env,check=False)
-    if result.returncode: raise ValueError('Initialization failed; inspect project before retrying')
+    if not initialized:
+        result=subprocess.run([os.environ.get('PYTHON',os.sys.executable),str(cli),'init','--profile',','.join(profiles)],cwd=root,env=env,check=False)
+        if result.returncode: raise ValueError('Initialization failed; inspect project before retrying')
+    else:
+        # --force means "adopt into the existing initialized project", not "overwrite".
+        # Preserve its database, configuration, selected profiles and authored Markdown.
+        report['existing_initialization_preserved']=True
     report_path=root/'.ai'/'adoption-review.json'
+    if initialized and (report_path.exists() or (root/'.ai'/'adoption-review.md').exists()):
+        raise ValueError('Existing adoption review found: refusing to overwrite it; archive the review before retrying')
     report_path.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     review=root/'.ai'/'adoption-review.md'
     lines=['# Adoption review (not approved)','', '## Evidence', *('- '+e for e in evidence),'','## Recent commits',*('- '+c for c in history.splitlines()),'','## Conversation candidates (unverified)',*('- '+p['excerpt'] for p in proposals),'','Review and explicitly approve before creating epics/tasks or accepting decisions.']
