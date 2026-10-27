@@ -71,6 +71,7 @@ def _git(root, *args):
 
 def adopt(root, args):
     if not root.is_dir(): raise ValueError('Project directory not found')
+    if (root/'.ai').exists(): raise ValueError('Legacy .ai directory detected: back up and rename .ai to .aiflow before adoption')
     initialized=(root/'.aiflow'/'config.json').exists()
     if initialized and not args.force:
         raise ValueError('AIFlow already initialized: use --force to adopt without reinitializing or overwriting existing .aiflow data')
