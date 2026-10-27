@@ -116,4 +116,7 @@ def adopt(root, args):
     if result.returncode: raise ValueError('Initialization failed; inspect project before retrying')
     report_path=root/'.ai'/'adoption-review.json'
     report_path.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    review=root/'.ai'/'adoption-review.md'
+    lines=['# Adoption review (not approved)','', '## Evidence', *('- '+e for e in evidence),'','## Recent commits',*('- '+c for c in history.splitlines()),'','## Conversation candidates (unverified)',*('- '+p['excerpt'] for p in proposals),'','Review and explicitly approve before creating epics/tasks or accepting decisions.']
+    review.write_text('\\n'.join(lines)+'\\n',encoding='utf-8')
     print('Adoption report:',report_path,'\nReview findings before approving any decisions.')
