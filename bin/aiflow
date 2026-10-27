@@ -390,6 +390,21 @@ def parser():
     sub=p.add_subparsers(dest='command')
     s=sub.add_parser('init'); s.add_argument('--name'); s.add_argument('--profile',default='php-laravel')
     sub.add_parser('status'); sub.add_parser('doctor')
+    dayp=sub.add_parser('day',help='Daily start/end workflow').add_subparsers(dest='action',required=True)
+    for action in ('start','end'):
+        d=dayp.add_parser(action); d.add_argument('--date'); d.add_argument('--json',action='store_true')
+        if action=='end': d.add_argument('--summary')
+    ad=sub.add_parser('adopt',help='Preview or adopt an existing project')
+    ad.add_argument('path',nargs='?'); ad.add_argument('--conversation'); ad.add_argument('--apply',action='store_true')
+    tracker=sub.add_parser('tracker',help='Jira tracker and worklog bridge').add_subparsers(dest='action',required=True)
+    for action in ('status','map','pull','worklog'):
+        t=tracker.add_parser(action)
+        if action=='map':
+            t.add_argument('local_id'); t.add_argument('remote_key')
+        if action=='pull': t.add_argument('remote_key')
+        if action=='worklog':
+            t.add_argument('activity_id',type=int); t.add_argument('--apply',action='store_true')
+
     profile = sub.add_parser('profile', help='Gestisci i profili tecnologici del progetto')
     profile_sub = profile.add_subparsers(dest='action', required=True)
     for action in ('list', 'available', 'sync'):
@@ -453,12 +468,22 @@ def main(argv=None):
     args=parser().parse_args(argv)
     root=project_root()
     try:
+        if args.command == 'adopt':
+            from installer.v14 import adopt
+            adopt(Path(args.path).expanduser().resolve() if args.path else root,args)
+            return 0
         if args.command == 'profile' and args.action in ('available', 'walkthrough'):
             profile_command(root, None, args)
             return 0
         db=connect(root,initialize=args.command=='init')
         if args.command=='init': init(root,db,args)
         elif args.command=='profile': profile_command(root,db,args)
+        elif args.command=='day':
+            from installer.v14 import day
+            day(root,db,args)
+        elif args.command=='tracker':
+            from installer.tracker import tracker_command
+            tracker_command(root,db,args)
         elif args.command=='status': show_status(db)
         elif args.command=='integrate':
             sys.path.insert(0,str(ROOT))
