@@ -60,7 +60,20 @@ try:
     bindir=pathlib.Path.home()/".local/bin"
     bindir.mkdir(parents=True,exist_ok=True)
     link=bindir/"aiflow"
-    if not link.exists() and not link.is_symlink():link.symlink_to(target/"bin/aiflow")
+    if link.is_symlink():
+        if link.resolve() != (target/"bin/aiflow").resolve():
+            print("WARNING: existing launcher points elsewhere:",link.resolve())
+    elif link.exists():
+        print("WARNING: existing launcher is not a symlink; preserved:",link)
+    else:
+        link.symlink_to(target/"bin/aiflow")
+    matches=[]
+    for directory in os.environ.get("PATH","").split(os.pathsep):
+        candidate=pathlib.Path(directory or ".")/"aiflow"
+        if candidate.is_file() and os.access(candidate,os.X_OK):matches.append(candidate)
+    print("AIFlow PATH resolution:",*[str(p) for p in matches],sep="\\n  ")
+    if matches and matches[0].resolve() != (target/"bin/aiflow").resolve():
+        print("WARNING: another aiflow shadows the canonical launcher; put ~/.local/bin first in PATH.")
     print("Installed in",target)
     print('Add to PATH if needed: export PATH="$HOME/.local/bin:$PATH"')
     print("Project .aiflow/ directories were not modified.")
