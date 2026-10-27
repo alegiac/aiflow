@@ -42,7 +42,6 @@ def sync(root, db):
         if target.exists() and _append_once(target,marker,section):updated.append(str(target))
         # Cross-project architecture decisions require explicit architecture scope.
     epics=db.execute('SELECT id,title,status FROM epics ORDER BY id').fetchall()
-    for epic,title,status in epics:
     project=ai/'project.md'
     begin='<!-- aiflow:inventory:start -->'
     end='<!-- aiflow:inventory:end -->'
