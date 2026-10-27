@@ -1,0 +1,20 @@
+name: AIFlow tests
+on:
+  pull_request:
+  push:
+    branches: [main, feature/v1.4.0-daily-adoption-tracker]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate and test
+        run: |
+          python3 -m compileall -q bin installer tools tests
+          python3 tools/validate_profiles.py
+          python3 -m unittest discover -s tests -v
