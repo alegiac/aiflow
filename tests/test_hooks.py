@@ -30,11 +30,11 @@ class HookTests(unittest.TestCase):
             self.assertEqual(len(data['hooks']['SessionStart']),1)
             p=subprocess.run([sys.executable,str(HOOK),'precompact'],input='{}',cwd=root,text=True,capture_output=True,timeout=15)
             self.assertEqual(p.returncode,0,p.stderr)
-            self.assertIn('Checkpoint automatico', (root/'.ai/state/checkpoints.md').read_text()) if 'Checkpoint automatico' in (root/'.ai/state/checkpoints.md').read_text() else None
+            self.assertIn('Checkpoint automatico', (root/'.aiflow/state/checkpoints.md').read_text()) if 'Checkpoint automatico' in (root/'.aiflow/state/checkpoints.md').read_text() else None
             # Draft epics are intentionally not considered active.
             self.call(root,'workflow-epic','start','EPIC-001')
             p=subprocess.run([sys.executable,str(HOOK),'precompact'],input='{}',cwd=root,text=True,capture_output=True,timeout=15)
             self.assertEqual(p.returncode,0,p.stderr)
-            self.assertIn('Checkpoint automatico', (root/'.ai/state/checkpoints.md').read_text())
+            self.assertIn('Checkpoint automatico', (root/'.aiflow/state/checkpoints.md').read_text())
             p=subprocess.run([sys.executable,str(HOOK),'sessionstart'],input='{}',cwd=root,text=True,capture_output=True,timeout=15)
             self.assertIn('recupero del contesto',p.stdout)
