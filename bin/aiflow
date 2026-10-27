@@ -396,15 +396,6 @@ def parser():
         if action=='end': d.add_argument('--summary'); d.add_argument('--next')
     ad=sub.add_parser('adopt',help='Preview or adopt an existing project')
     ad.add_argument('path',nargs='?'); ad.add_argument('--conversation'); ad.add_argument('--apply',action='store_true')
-    tracker=sub.add_parser('tracker',help='Jira tracker and worklog bridge').add_subparsers(dest='action',required=True)
-    for action in ('status','map','pull','sync','worklog'):
-        t=tracker.add_parser(action)
-        if action=='map':
-            t.add_argument('local_id'); t.add_argument('remote_key')
-        if action=='pull': t.add_argument('remote_key')
-        if action=='worklog':
-            t.add_argument('activity_id',type=int); t.add_argument('--apply',action='store_true')
-
     profile = sub.add_parser('profile', help='Gestisci i profili tecnologici del progetto')
     profile_sub = profile.add_subparsers(dest='action', required=True)
     for action in ('list', 'available', 'sync'):
@@ -483,10 +474,6 @@ def main(argv=None):
             sys.path.insert(0,str(ROOT))
             from installer.v14 import day
             day(root,db,args)
-        elif args.command=='tracker':
-            sys.path.insert(0,str(ROOT))
-            from installer.tracker import tracker_command
-            tracker_command(root,db,args)
         elif args.command=='status': show_status(db)
         elif args.command=='integrate':
             sys.path.insert(0,str(ROOT))
