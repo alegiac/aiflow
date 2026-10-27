@@ -51,7 +51,7 @@ flowchart TD
 ```text
 project/
 ├── AGENTS.md
-└── .ai/
+└── .aiflow/
     ├── project.md
     ├── architecture.md
     ├── state/
@@ -91,7 +91,7 @@ If you already have the repository checked out:
 python3 tools/install_manager.py install --yes
 ```
 
-Installer behavior: obtains latest GitHub Release via API, downloads the ZIP and `.sha256`, checks the digest, validates archive paths, stages the installation, and retains a `.previous` rollback directory. It does not edit project `.ai/` state.
+Installer behavior: obtains latest GitHub Release via API, downloads the ZIP and `.sha256`, checks the digest, validates archive paths, stages the installation, and retains a `.previous` rollback directory. It does not edit project `.aiflow/` state.
 
 **Important:** the SHA256 file is served by the same release publisher. This detects corrupted/mismatched downloads but is not an independent signature of publisher identity.
 
@@ -146,7 +146,7 @@ aiflow profile walkthrough php-laravel
 aiflow profile walkthrough shopify-graphql
 ```
 
-The ordered list is stored in `.ai/config.json` under `profiles`, with `profile` preserved for compatibility. AIFlow generates `.ai/profiles/README.md` as an agent-readable index. The actual versioned guidance lives in the installed AIFlow `profiles/<slug>/PROFILE.md` directory; updating AIFlow can update those definitions. The CLI preserves existing project documents and does not install npm packages, database servers or Shopify apps.
+The ordered list is stored in `.aiflow/config.json` under `profiles`, with `profile` preserved for compatibility. AIFlow generates `.aiflow/profiles/README.md` as an agent-readable index. The actual versioned guidance lives in the installed AIFlow `profiles/<slug>/PROFILE.md` directory; updating AIFlow can update those definitions. The CLI preserves existing project documents and does not install npm packages, database servers or Shopify apps.
 
 Bundled profiles: `php-laravel`, `react`, `shadcn`, `tailwind`, `shopify-rest` (legacy), `shopify-graphql`, `postgresql`, `mysql`, `nodejs`. REST and GraphQL may coexist during migration; shadcn requires a compatible React/Tailwind setup. Explicitly select multiple databases only if the architecture calls for them.
 
@@ -186,7 +186,7 @@ Shared decisions are stored under `~/.config/aiflow/` (override with `AIFLOW_HOM
 
 ## 7. Daily multi-project report
 
-`tools/daily_digest.py` scans `.ai/state/aiflow.sqlite3` files under a configured root (default `~/Development`) and produces a local-time event summary.
+`tools/daily_digest.py` scans `.aiflow/state/aiflow.sqlite3` files under a configured root (default `~/Development`) and produces a local-time event summary.
 
 ```bash
 python3 tools/daily_digest.py --projects-root ~/Development
@@ -242,7 +242,7 @@ Profiles are guidance, **not automatic approval of platform-wide decisions**. Se
 
 ## 11. Contributing and release procedure
 
-- Keep CLI and adapters backward-compatible with persistent `.ai/` data.
+- Keep CLI and adapters backward-compatible with persistent `.aiflow/` data.
 - Add tests for new workflow states, approvals and integration hooks.
 - Do not hard-code credentials or remote targets.
 - Publish `aiflow-release.zip` and `aiflow-release.zip.sha256` together as assets on a GitHub Release tagged `vX.Y.Z`.
