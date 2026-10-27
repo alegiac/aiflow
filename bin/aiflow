@@ -406,6 +406,12 @@ def parser():
         if action=='end':
             d.add_argument('--summary'); d.add_argument('--next')
             d.add_argument('--no-digest',action='store_true',help='Do not send the automatic daily email')
+    dig=sub.add_parser('digest',help='Generate or send the daily project digest')
+    dig.add_argument('--date',help='YYYY-MM-DD, default today')
+    dig.add_argument('--format',choices=['text','html'],default='text')
+    dig.add_argument('--send',action='store_true',help='Send email using SMTP configuration')
+    dig.add_argument('--force-send',action='store_true',help='Send again even if already sent')
+    dig.add_argument('--json',action='store_true')
     specs=sub.add_parser('specs',help='Consolidate approved project specs').add_subparsers(dest='action',required=True)
     specs.add_parser('sync')
     record=specs.add_parser('record',help='Record approved project or architecture changes')
@@ -502,6 +508,17 @@ def main(argv=None):
             sys.path.insert(0,str(ROOT))
             from installer.v14 import day
             day(root,db,args)
+        elif args.command=='digest':
+            sys.path.insert(0,str(ROOT))
+            from installer import digest
+            from zoneinfo import ZoneInfo
+            date=args.date or dt.datetime.now(ZoneInfo(os.environ.get('AIFLOW_DIGEST_TIMEZONE','Europe/Rome'))).date().isoformat()
+            dt.date.fromisoformat(date)
+            result=digest.generate(root,db,date,send=args.send or args.force_send,force_send=args.force_send)
+            if args.json: print(json.dumps(result,ensure_ascii=False,indent=2))
+            elif args.format=='html': print(result['digest'])
+            else: print((root/'.aiflow/state/digest'/(date+'.txt')).read_text(encoding='utf-8'))
+            if result.get('mail_error'): print('Digest warning:',result['mail_error'],file=sys.stderr)
         elif args.command=='status': show_status(db)
         elif args.command=='integrate':
             sys.path.insert(0,str(ROOT))
