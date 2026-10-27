@@ -80,3 +80,17 @@ def propose(root,db,args):
     else:
         mod.create_task(root,db,argparse.Namespace(epic=args.epic,title=args.title,id=None))
     sync(root,db)
+
+def record(root,db,args):
+    """Explicit, evidence-backed canonical project or architecture specification."""
+    import hashlib
+    if not args.text.strip() or not args.evidence.strip() or not args.by.strip():
+        raise ValueError('Non-empty text, --evidence and --by required')
+    dest=root/'.ai'/('architecture.md' if args.scope=='architecture' else 'project.md')
+    digest=hashlib.sha256((args.scope+'\\0'+args.text.strip()+'\\0'+args.evidence.strip()).encode()).hexdigest()[:16]
+    marker='<!-- aiflow:spec:'+digest+' -->'
+    section=marker+'\\n### Verified update ('+_stamp()+')\\n\\n'+args.text.strip()+'\\n\\nEvidence: '+args.evidence.strip()+'; approved by: '+args.by.strip()+'\\n'
+    changed=_append_once(dest,marker,section)
+    db.execute('INSERT INTO events(created_at,kind,ref,details) VALUES(?,?,?,?)',(_stamp(),'spec.record',args.scope,digest))
+    db.commit()
+    print('Recorded' if changed else 'Already present',dest)
