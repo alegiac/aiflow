@@ -393,7 +393,7 @@ def parser():
     dayp=sub.add_parser('day',help='Daily start/end workflow').add_subparsers(dest='action',required=True)
     for action in ('start','end'):
         d=dayp.add_parser(action); d.add_argument('--date'); d.add_argument('--json',action='store_true')
-        if action=='end': d.add_argument('--summary')
+        if action=='end': d.add_argument('--summary'); d.add_argument('--next')
     ad=sub.add_parser('adopt',help='Preview or adopt an existing project')
     ad.add_argument('path',nargs='?'); ad.add_argument('--conversation'); ad.add_argument('--apply',action='store_true')
     tracker=sub.add_parser('tracker',help='Jira tracker and worklog bridge').add_subparsers(dest='action',required=True)
