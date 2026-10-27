@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 def report(root, day, tz):
     result=[]
-    for dbfile in root.rglob('.ai/state/aiflow.sqlite3'):
+    for dbfile in root.rglob('.aiflow/state/aiflow.sqlite3'):
         project=dbfile.parents[2]
         try:
             db=sqlite3.connect(f"file:{dbfile}?mode=ro",uri=True)
