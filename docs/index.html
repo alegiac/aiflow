@@ -11,7 +11,8 @@
 <section id="profiles"><h2>Compose your technology stack</h2><p>Choose multiple Markdown technology profiles at initialization, then add or remove them as your project evolves. AIFlow shares the relevant guidance with Codex CLI and Claude Code without installing dependencies or changing your application code.</p><div class="grid"><article class="card"><h3>⚛️ Frontend</h3><p>React, shadcn/ui and Tailwind CSS.</p></article><article class="card"><h3>🛍️ Shopify</h3><p>Admin GraphQL and legacy REST integrations.</p></article><article class="card"><h3>🗄️ Backend &amp; data</h3><p>PHP/Laravel, Node.js, PostgreSQL and MySQL.</p></article></div><div class="code">aiflow init --profile php-laravel,react,shadcn,tailwind,shopify-graphql,mysql
 aiflow profile add nodejs
 aiflow profile list
-aiflow profile sync</div><p class="hint">Profiles are composable agent instructions, not automatic dependency installation. <a href="https://github.com/alegiac/aiflow#composable-technology-profiles">Read the profile guide</a>.</p></section>
+aiflow profile sync
+aiflow profile walkthrough shopify-graphql</div><p class="hint">Each profile also includes a dedicated Codex/Claude walkthrough skill explaining its rules. Profiles are composable agent instructions, not automatic dependency installation. <a href="https://github.com/alegiac/aiflow#composable-technology-profiles">Read the profile guide</a>.</p></section>
 <section id="start"><h2>Start building</h2><p>Requires Python 3 and macOS or Linux. Inspect scripts before running them, as with any downloaded installer.</p><div class="code">curl -fsSL https://raw.githubusercontent.com/alegiac/aiflow/main/install.sh -o aiflow-install.sh
 sh aiflow-install.sh
 
