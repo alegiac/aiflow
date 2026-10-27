@@ -65,3 +65,11 @@ class TestV14(unittest.TestCase):
         self.cli('day','start')
         self.cli('day','end','--summary','Done','--next','Next task')
         self.assertIn('Done',(self.root/'.ai/state/checkpoints.md').read_text())
+
+    def test_evidence_backed_architecture_update(self):
+        self.cli('init')
+        self.cli('specs','record','architecture','PostgreSQL persistence','--by','user','--evidence','Reviewed ADR')
+        self.cli('specs','record','architecture','PostgreSQL persistence','--by','user','--evidence','Reviewed ADR')
+        doc=(self.root/'.ai/architecture.md').read_text()
+        self.assertEqual(doc.count('PostgreSQL persistence'),1)
+        self.assertIn('Reviewed ADR',doc)
