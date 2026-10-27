@@ -205,6 +205,12 @@ def profile_command(root, db, args):
     print('Profili attivi:', ', '.join(updated))
 
 
+def sync_specs_after_change(root, db):
+    """Keep generated Markdown aligned after successful local lifecycle mutations."""
+    from installer import specsync
+    specsync.sync(root, db)
+
+
 def create_epic(root, db, args):
     db.execute('BEGIN IMMEDIATE')
     eid = alloc(db,'epic',args.id,'EPIC')
@@ -221,6 +227,7 @@ def create_epic(root, db, args):
     write_new(d/'ux.md',f'# UX — {eid}\n\n## Flussi\n\n## Stati e messaggi\n\n## Accessibilità\n\n## Riferimenti Figma\n\n')
     event(db,'epic.create',eid,args.title)
     db.commit()
+    sync_specs_after_change(root, db)
     print(f'{eid}: {args.title}\n{d}')
 
 
@@ -241,6 +248,7 @@ def create_task(root,db,args):
     write_new(d/'report.md',f'# Resoconto — {args.epic}/{tid}\n\n## Attività svolte\n\n## File modificati\n\n## Test eseguiti ed esito\n\n## Impatti e problemi\n\n## Decisioni e checkpoint\n\n## Attività residue\n\n')
     event(db,'task.create',f'{args.epic}/{tid}',args.title)
     db.commit()
+    sync_specs_after_change(root, db)
     print(f'{args.epic}/{tid}: {args.title}\n{d}')
 
 
@@ -270,6 +278,7 @@ def set_status(root,db,kind,args):
     atomic_write(path,content)
     event(db,kind+'.status',ref,args.status)
     db.commit()
+    sync_specs_after_change(root, db)
     print(ref, '→', args.status)
 
 
@@ -396,8 +405,6 @@ def parser():
         if action=='end': d.add_argument('--summary'); d.add_argument('--next')
     specs=sub.add_parser('specs',help='Consolidate approved project specs').add_subparsers(dest='action',required=True)
     specs.add_parser('sync')
-    proposal=specs.add_parser('propose',help='Explicitly create draft Epic/Task with Markdown')
-    proposal.add_argument('kind',choices=['epic','task']); proposal.add_argument('title'); proposal.add_argument('--epic')
     record=specs.add_parser('record',help='Record approved project or architecture changes')
     record.add_argument('scope',choices=['project','architecture']); record.add_argument('text')
     record.add_argument('--by',required=True); record.add_argument('--evidence',required=True)
@@ -485,9 +492,6 @@ def main(argv=None):
                 print('Specification documents updated:',len(updated))
             elif args.action=='record':
                 specsync.record(root,db,args)
-            else:
-                if args.kind=='task' and not args.epic: raise ValueError('Task proposal requires --epic')
-                specsync.propose(root,db,args)
         elif args.command=='day':
             sys.path.insert(0,str(ROOT))
             from installer.v14 import day
