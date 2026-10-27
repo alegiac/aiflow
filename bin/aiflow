@@ -403,7 +403,9 @@ def parser():
     dayp=sub.add_parser('day',help='Daily start/end workflow').add_subparsers(dest='action',required=True)
     for action in ('start','end'):
         d=dayp.add_parser(action); d.add_argument('--date'); d.add_argument('--json',action='store_true')
-        if action=='end': d.add_argument('--summary'); d.add_argument('--next')
+        if action=='end':
+            d.add_argument('--summary'); d.add_argument('--next')
+            d.add_argument('--no-digest',action='store_true',help='Do not send the automatic daily email')
     specs=sub.add_parser('specs',help='Consolidate approved project specs').add_subparsers(dest='action',required=True)
     specs.add_parser('sync')
     record=specs.add_parser('record',help='Record approved project or architecture changes')

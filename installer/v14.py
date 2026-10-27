@@ -57,9 +57,17 @@ def day(root, db, args):
     checkpoint_path=root/'.aiflow'/'state'/'checkpoints.md'
     with checkpoint_path.open('a',encoding='utf-8') as f:
         f.write('\n## Day '+date+' — '+now+'\n\n'+summary+'\n\nNext: '+next_step+'\n')
-    result = dict(date=date,updated_specs=len(updated),session_id=row[0] if row else None,stopped_activity=active[0] if active else None,summary=summary)
+    from installer import digest
+    try:
+        delivery=digest.generate(root,db,date,send=not args.no_digest)
+    except Exception as exc:
+        delivery={'mail_status':'failed','mail_error':str(exc),'digest':None}
+    result = dict(date=date,updated_specs=len(updated),session_id=row[0] if row else None,stopped_activity=active[0] if active else None,summary=summary,**delivery)
     if args.json: print(json.dumps(result,ensure_ascii=False,indent=2))
-    else: print('AIFlow day end:',date,'\n',summary)
+    else:
+        print('AIFlow day end:',date,'\n',summary)
+        print('Digest:',delivery.get('digest') or 'unavailable','| email:',delivery['mail_status'])
+        if delivery.get('mail_error'): print('Digest warning:',delivery['mail_error'])
 
 
 def _git(root, *args):

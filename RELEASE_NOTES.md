@@ -1,3 +1,11 @@
+## v1.5.0 — Project-scoped automatic daily email
+
+- `aiflow day end` creates a project-specific HTML and plain-text digest and sends it via SMTP by default when credentials are configured.
+- `aiflow day end --no-digest` suppresses email while preserving the local report.
+- Daily metrics include tracked time, Epic/Task state and activity, decisions, approvals, checkpoints and event timeline.
+- Report files and delivery state are saved in `.aiflow/state/digest/`; duplicate successful sends are prevented and SMTP errors never block day closure.
+- Configure SMTP using environment variables documented in `DAILY_DIGEST.md`.
+
 ## v1.4.3 — Installation and PATH consistency
 
 - Installer and upgrade report duplicate `aiflow` executables and shell PATH shadowing.
