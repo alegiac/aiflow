@@ -12,7 +12,7 @@ def run():
     except (ValueError, EOFError):
         payload = {}
     root = Path.cwd()
-    if not (root / '.ai/state/aiflow.sqlite3').exists():
+    if not (root / '.aiflow/state/aiflow.sqlite3').exists():
         return
     from importlib.machinery import SourceFileLoader
     from importlib.util import spec_from_loader, module_from_spec
