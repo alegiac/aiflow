@@ -52,16 +52,17 @@ class TestV14(unittest.TestCase):
 
     def test_specs_are_markdown_backed_and_sync_is_idempotent(self):
         self.cli('init')
-        self.cli('specs','propose','epic','Billing')
-        self.cli('specs','propose','task','Invoice PDF','--epic','EPIC-001')
+        self.cli('epic','create','Billing')
+        self.cli('task','create','EPIC-001','Invoice PDF')
         epic=self.root/'.ai/epics/EPIC-001/epic.md'
         task=self.root/'.ai/epics/EPIC-001/tasks/TASK-001/task.md'
         self.assertTrue(epic.exists())
         self.assertTrue(task.exists())
         self.cli('specs','sync')
         self.cli('specs','sync')
-        self.assertEqual((self.root/'.ai/project.md').read_text().count('<!-- aiflow:epic:EPIC-001 -->'),1)
-        self.assertEqual(epic.read_text().count('<!-- aiflow:task:EPIC-001/TASK-001 -->'),1)
+        self.assertEqual((self.root/'.ai/project.md').read_text().count('<!-- aiflow:inventory:start -->'),1)
+        self.assertIn('TASK-001: Invoice PDF', (self.root/'.ai/project.md').read_text())
+        self.assertIn('Billing',epic.read_text())
         self.cli('day','start')
         self.cli('day','end','--summary','Done','--next','Next task')
         self.assertIn('Done',(self.root/'.ai/state/checkpoints.md').read_text())
@@ -73,3 +74,18 @@ class TestV14(unittest.TestCase):
         doc=(self.root/'.ai/architecture.md').read_text()
         self.assertEqual(doc.count('PostgreSQL persistence'),1)
         self.assertIn('Reviewed ADR',doc)
+
+    def test_create_auto_sync_and_no_duplicate_propose(self):
+        self.cli('init')
+        self.assertNotIn('propose',self.cli('specs','--help').stdout)
+        self.cli('epic','create','Payments')
+        project=self.root/'.ai/project.md'
+        self.assertIn('EPIC-001: Payments [draft]',project.read_text())
+        self.cli('task','create','EPIC-001','Card capture')
+        self.assertIn('TASK-001: Card capture [draft]',project.read_text())
+        self.cli('task','status','EPIC-001','TASK-001','blocked')
+        self.assertIn('TASK-001: Card capture [blocked]',project.read_text())
+        before=project.read_text()
+        self.cli('specs','sync')
+        self.assertEqual(before,project.read_text())
+        self.assertEqual(project.read_text().count('<!-- aiflow:inventory:start -->'),1)
