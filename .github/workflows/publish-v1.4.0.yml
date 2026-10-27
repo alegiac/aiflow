@@ -1,4 +1,4 @@
-name: Publish AIFlow v1.4.1 (one-time)
+name: Publish AIFlow v1.4.1 (one-time hotfix)
 on:
   push:
     branches: [main]
