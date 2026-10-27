@@ -207,6 +207,7 @@ def profile_command(root, db, args):
 
 def sync_specs_after_change(root, db):
     """Keep generated Markdown aligned after successful local lifecycle mutations."""
+    sys.path.insert(0, str(ROOT))
     from installer import specsync
     specsync.sync(root, db)
 
