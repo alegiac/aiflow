@@ -1,6 +1,6 @@
 # Riepilogo quotidiano multi-progetto
 
-La scansione cerca `.ai/state/aiflow.sqlite3` sotto `~/Development`, legge gli eventi del giorno nel fuso Europe/Rome e produce un riepilogo. I progetti fuori da quella cartella richiedono `--projects-root`. Non legge dati da GitHub: i database sono locali.
+La scansione cerca `.aiflow/state/aiflow.sqlite3` sotto `~/Development`, legge gli eventi del giorno nel fuso Europe/Rome e produce un riepilogo. I progetti fuori da quella cartella richiedono `--projects-root`. Non legge dati da GitHub: i database sono locali.
 
 ## Prova senza invio
 `python3 tools/daily_digest.py --projects-root ~/Development`

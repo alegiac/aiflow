@@ -23,8 +23,8 @@ class TestCLI(unittest.TestCase):
         self.run_cli('task','create','EPIC-001','Login')
         self.run_cli('task','create','EPIC-001','Roles')
         self.run_cli('task','create','EPIC-002','Import')
-        self.assertTrue((self.root/'.ai/epics/EPIC-001/tasks/TASK-001/task.md').exists())
-        self.assertTrue((self.root/'.ai/epics/EPIC-001/tasks/TASK-001/report.md').exists())
+        self.assertTrue((self.root/'.aiflow/epics/EPIC-001/tasks/TASK-001/task.md').exists())
+        self.assertTrue((self.root/'.aiflow/epics/EPIC-001/tasks/TASK-001/report.md').exists())
         self.assertIn('EPIC-002',self.run_cli('status').stdout)
         self.run_cli('session','start')
         self.run_cli('track','start','--epic','EPIC-001','--task','TASK-001')
@@ -40,14 +40,14 @@ class TestCLI(unittest.TestCase):
         for kind in ('scope','requirements','plan'):
             self.run_cli('approve','AUTH',kind,'--by','user','--evidence','Explicit approval')
         self.run_cli('workflow-epic','approve','AUTH','--by','user','--evidence','Explicit approval')
-        self.assertIn('Stato: approved',(self.root/'.ai/epics/AUTH/epic.md').read_text())
+        self.assertIn('Stato: approved',(self.root/'.aiflow/epics/AUTH/epic.md').read_text())
     def test_multiple_profiles_and_incremental_changes(self):
         import json
         self.run_cli('init', '--profile', 'php-laravel,react,shadcn,shopify-graphql,mysql')
-        cfg = self.root / '.ai/config.json'
+        cfg = self.root / '.aiflow/config.json'
         data = json.loads(cfg.read_text())
         self.assertEqual(data['profiles'], ['php-laravel', 'react', 'shadcn', 'shopify-graphql', 'mysql'])
-        self.assertIn('react', (self.root / '.ai/profiles/README.md').read_text())
+        self.assertIn('react', (self.root / '.aiflow/profiles/README.md').read_text())
         self.run_cli('profile', 'add', 'nodejs,react')
         self.assertEqual(json.loads(cfg.read_text())['profiles'][-1], 'nodejs')
         self.run_cli('profile', 'remove', 'mysql')
@@ -62,7 +62,7 @@ class TestCLI(unittest.TestCase):
             result = self.run_cli('profile', 'walkthrough', slug)
             self.assertIn('AIFlow profile walkthrough:', result.stdout)
             self.assertIn('##', result.stdout)
-        self.assertFalse((self.root / '.ai').exists())
+        self.assertFalse((self.root / '.aiflow').exists())
         bad = self.run_cli('profile', 'walkthrough', 'unknown', ok=False)
         self.assertNotEqual(bad.returncode, 0)
 
@@ -73,14 +73,14 @@ class TestCLI(unittest.TestCase):
         self.run_cli('init', '--profile', 'php-laravel')
         self.run_cli('profile', 'add', 'react')
         self.run_cli('init', '--profile', 'php-laravel')
-        self.assertEqual(json.loads((self.root / '.ai/config.json').read_text())['profiles'], ['php-laravel', 'react'])
+        self.assertEqual(json.loads((self.root / '.aiflow/config.json').read_text())['profiles'], ['php-laravel', 'react'])
         bad = self.run_cli('profile', 'add', 'not-a-real-profile', ok=False)
         self.assertNotEqual(bad.returncode, 0)
-        self.assertEqual(json.loads((self.root / '.ai/config.json').read_text())['profiles'], ['php-laravel', 'react'])
+        self.assertEqual(json.loads((self.root / '.aiflow/config.json').read_text())['profiles'], ['php-laravel', 'react'])
 
     def test_does_not_overwrite(self):
         self.run_cli('init')
-        path=self.root/'.ai/project.md'; path.write_text('Personalizzato')
+        path=self.root/'.aiflow/project.md'; path.write_text('Personalizzato')
         self.run_cli('init')
         self.assertEqual(path.read_text(),'Personalizzato')
 

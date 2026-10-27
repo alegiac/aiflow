@@ -28,6 +28,6 @@ class V1Tests(unittest.TestCase):
             run('workflow-task','finish','EPIC-009','TASK-001','--by','human','--evidence','Validated')
             run('workflow-epic','finish','EPIC-009','--by','human','--evidence','Validated')
             run('report','EPIC-009')
-            self.assertTrue((Path(tmp)/'.ai/epics/EPIC-009/summary.md').exists())
+            self.assertTrue((Path(tmp)/'.aiflow/epics/EPIC-009/summary.md').exists())
             run('report','EPIC-009/TASK-001')
-            self.assertTrue((Path(tmp)/'.ai/epics/EPIC-009/tasks/TASK-001/activity-summary.md').exists())
+            self.assertTrue((Path(tmp)/'.aiflow/epics/EPIC-009/tasks/TASK-001/activity-summary.md').exists())

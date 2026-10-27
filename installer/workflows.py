@@ -26,7 +26,7 @@ def validate_ref(root, db, ref):
     parts = ref.split('/')
     if not db.execute('SELECT 1 FROM epics WHERE id=?', (parts[0],)).fetchone():
         raise ValueError('Epic inesistente')
-    path = root/'.ai/epics'/parts[0]
+    path = root/'.aiflow/epics'/parts[0]
     if len(parts) == 2:
         if not db.execute('SELECT 1 FROM tasks WHERE epic_id=? AND id=?', tuple(parts)).fetchone():
             raise ValueError('Task inesistente')
@@ -124,7 +124,7 @@ def checkpoint(root, db, args):
                          (args.ref,args.summary,args.next or '',timestamp()))
         log(db,'checkpoint',args.ref,str(cur.lastrowid))
     entry=f'\n## CP-{cur.lastrowid:04d} — {timestamp()} — {args.ref}\n\n{args.summary}\n\n**Prossimo passo:** {args.next or "Da concordare"}\n'
-    append(root/'.ai/state/checkpoints.md',entry)
+    append(root/'.aiflow/state/checkpoints.md',entry)
     append(path/'checkpoints.md',entry)
     print(f'Checkpoint CP-{cur.lastrowid:04d} registrato')
 
@@ -183,7 +183,7 @@ def lifecycle(root, db, args):
 def recovery(root, db, args):
     ensure_schema(db)
     print('# AIFlow — recupero del contesto')
-    print('\nLeggere `.ai/AGENTS.md`, `.ai/project.md`, `.ai/architecture.md` e i documenti della Epic/Task attiva.')
+    print('\nLeggere `.aiflow/AGENTS.md`, `.aiflow/project.md`, `.aiflow/architecture.md` e i documenti della Epic/Task attiva.')
     for row in db.execute("SELECT id,title,status FROM epics WHERE status NOT IN ('completed','cancelled') ORDER BY updated_at DESC LIMIT 10"):
         print(f'\nEpic {row[0]} [{row[2]}] {row[1]}')
         for task in db.execute('SELECT id,title,status FROM tasks WHERE epic_id=? ORDER BY updated_at DESC',(row[0],)):
@@ -234,7 +234,7 @@ def report(root, db, args):
     if args.output:
         target=Path(args.output).resolve()
     else:
-        target=(root/'.ai/state/project-report.md' if ref=='project' else validate_ref(root,db,ref)/('report.md' if '/' in ref else 'summary.md'))
+        target=(root/'.aiflow/state/project-report.md' if ref=='project' else validate_ref(root,db,ref)/('report.md' if '/' in ref else 'summary.md'))
     target.parent.mkdir(parents=True,exist_ok=True)
     # Generated reports are separate from manually curated task reports.
     if not args.output and '/' in ref: target=target.with_name('activity-summary.md')

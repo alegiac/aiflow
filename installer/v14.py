@@ -54,7 +54,7 @@ def day(root, db, args):
     db.commit()
     from installer import specsync
     updated=specsync.sync(root,db)
-    checkpoint_path=root/'.ai'/'state'/'checkpoints.md'
+    checkpoint_path=root/'.aiflow'/'state'/'checkpoints.md'
     with checkpoint_path.open('a',encoding='utf-8') as f:
         f.write('\n## Day '+date+' — '+now+'\n\n'+summary+'\n\nNext: '+next_step+'\n')
     result = dict(date=date,updated_specs=len(updated),session_id=row[0] if row else None,stopped_activity=active[0] if active else None,summary=summary)
@@ -71,13 +71,14 @@ def _git(root, *args):
 
 def adopt(root, args):
     if not root.is_dir(): raise ValueError('Project directory not found')
-    initialized=(root/'.ai'/'config.json').exists()
+    if (root/'.ai').exists(): raise ValueError('Legacy .ai directory detected: back up and rename .ai to .aiflow before adoption')
+    initialized=(root/'.aiflow'/'config.json').exists()
     if initialized and not args.force:
-        raise ValueError('AIFlow already initialized: use --force to adopt without reinitializing or overwriting existing .ai data')
+        raise ValueError('AIFlow already initialized: use --force to adopt without reinitializing or overwriting existing .aiflow data')
     if args.force and not args.apply:
         raise ValueError('--force requires --apply (run a normal preview first)')
 
-    skip={'.git','.ai','node_modules','vendor','.venv','venv','dist','build'}
+    skip={'.git','.aiflow','node_modules','vendor','.venv','venv','dist','build'}
     names=[]
     for p in sorted(root.iterdir()):
         if p.name not in skip: names.append(p.name)
@@ -132,11 +133,11 @@ def adopt(root, args):
         # --force means "adopt into the existing initialized project", not "overwrite".
         # Preserve its database, configuration, selected profiles and authored Markdown.
         report['existing_initialization_preserved']=True
-    report_path=root/'.ai'/'adoption-review.json'
-    if initialized and (report_path.exists() or (root/'.ai'/'adoption-review.md').exists()):
+    report_path=root/'.aiflow'/'adoption-review.json'
+    if initialized and (report_path.exists() or (root/'.aiflow'/'adoption-review.md').exists()):
         raise ValueError('Existing adoption review found: refusing to overwrite it; archive the review before retrying')
     report_path.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-    review=root/'.ai'/'adoption-review.md'
+    review=root/'.aiflow'/'adoption-review.md'
     lines=['# Adoption review (not approved)','', '## Evidence', *('- '+e for e in evidence),'','## Recent commits',*('- '+c for c in history.splitlines()),'','## Conversation candidates (unverified)',*('- '+p['excerpt'] for p in proposals),'','Review and explicitly approve before creating epics/tasks or accepting decisions.']
     review.write_text('\n'.join(lines)+'\n',encoding='utf-8')
     print('Adoption report:',report_path,'\nReview findings before approving any decisions.')

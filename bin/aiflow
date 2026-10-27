@@ -20,7 +20,7 @@ def project_root():
 
 
 def db_path(root):
-    return root / '.ai' / 'state' / 'aiflow.sqlite3'
+    return root / '.aiflow' / 'state' / 'aiflow.sqlite3'
 
 
 def connect(root, initialize=False):
@@ -79,7 +79,7 @@ def alloc(db, kind, explicit, prefix):
 
 
 def epic_dir(root, eid):
-    return root / '.ai' / 'epics' / eid
+    return root / '.aiflow' / 'epics' / eid
 
 
 def task_dir(root, eid, tid):
@@ -88,14 +88,14 @@ def task_dir(root, eid, tid):
 
 def init(root, db, args):
     profiles = parse_profiles(args.profile)
-    ai = root / '.ai'
+    ai = root / '.aiflow'
     (ai/'epics').mkdir(parents=True, exist_ok=True)
     (ai/'knowledge'/'decisions').mkdir(parents=True, exist_ok=True)
     (ai/'state').mkdir(parents=True, exist_ok=True)
     templates = {
       'project.md': f'# Progetto\n\nNome: {args.name or root.name}\n\n## Scopo\n\nDa definire con l’utente.\n',
       'architecture.md': '# Architettura attuale\n\nDa rilevare dalla repository. Non inventare dettagli.\n',
-      'AGENTS.md': '# Istruzioni agenti\n\nLeggi `.ai/project.md`, `.ai/architecture.md`, `.ai/state/current.md`, poi l’Epic e il Task attivi.\nConsulta `.ai/profiles/README.md` e applica insieme i profili attivi pertinenti al task.\nLe decisioni sono bozze finché l’utente non le approva esplicitamente.\nNon inventare requisiti. Usa le skill del framework e `aiflow` per registrare gli stati.\nDopo ogni decisione approvata esegui `aiflow specs sync`; usa `aiflow specs record project|architecture` solo con approvazione ed evidenza.\nPer nuove attività usa i comandi esistenti `aiflow epic create` e `aiflow task create`: generano i Markdown dedicati e aggiornano automaticamente il riepilogo del progetto.\nA inizio/fine giornata usa `aiflow day start|end` per riallineare stato e specifiche.\nNon eseguire commit, push, deploy o operazioni server senza autorizzazione esplicita.\n',
+      'AGENTS.md': '# Istruzioni agenti\n\nLeggi `.aiflow/project.md`, `.aiflow/architecture.md`, `.aiflow/state/current.md`, poi l’Epic e il Task attivi.\nConsulta `.aiflow/profiles/README.md` e applica insieme i profili attivi pertinenti al task.\nLe decisioni sono bozze finché l’utente non le approva esplicitamente.\nNon inventare requisiti. Usa le skill del framework e `aiflow` per registrare gli stati.\nDopo ogni decisione approvata esegui `aiflow specs sync`; usa `aiflow specs record project|architecture` solo con approvazione ed evidenza.\nPer nuove attività usa i comandi esistenti `aiflow epic create` e `aiflow task create`: generano i Markdown dedicati e aggiornano automaticamente il riepilogo del progetto.\nA inizio/fine giornata usa `aiflow day start|end` per riallineare stato e specifiche.\nNon eseguire commit, push, deploy o operazioni server senza autorizzazione esplicita.\n',
       'state/current.md': '# Stato corrente\n\nUsa `aiflow status` per lo stato operativo.\n',
       'state/checkpoints.md': '# Checkpoint\n\n',
       'state/logbook.md': '# Logbook\n\n',
@@ -131,7 +131,7 @@ def parse_profiles(raw):
 
 
 def read_project_profiles(root):
-    cfg = root / '.ai' / 'config.json'
+    cfg = root / '.aiflow' / 'config.json'
     if not cfg.exists():
         raise ValueError('Progetto non inizializzato: esegui aiflow init')
     data = json.loads(cfg.read_text(encoding='utf-8'))
@@ -142,7 +142,7 @@ def read_project_profiles(root):
 
 
 def sync_project_profiles(root, profiles):
-    dest = root / '.ai' / 'profiles'
+    dest = root / '.aiflow' / 'profiles'
     dest.mkdir(parents=True, exist_ok=True)
     # Only manage the generated index; never overwrite user-owned profile documents.
     lines = ['# AIFlow active technology profiles', '',
@@ -198,7 +198,7 @@ def profile_command(root, db, args):
             raise ValueError('Almeno un profilo deve rimanere attivo')
     data['profiles'] = updated
     data['profile'] = updated[0]  # backward compatibility for older integrations
-    atomic_write(root / '.ai' / 'config.json', json.dumps(data, indent=2, ensure_ascii=False) + '\n')
+    atomic_write(root / '.aiflow' / 'config.json', json.dumps(data, indent=2, ensure_ascii=False) + '\n')
     sync_project_profiles(root, updated)
     event(db, 'profile.' + args.action, ','.join(changes), ','.join(updated))
     db.commit()
@@ -285,11 +285,11 @@ def set_status(root,db,kind,args):
 
 def append_note(root,db,args):
     if args.kind=='checkpoint':
-        path=root/'.ai/state/checkpoints.md'
+        path=root/'.aiflow/state/checkpoints.md'
     elif args.kind=='decision':
-        path=root/'.ai/state/decisions.md'
+        path=root/'.aiflow/state/decisions.md'
     elif args.kind=='log':
-        path=root/'.ai/state/logbook.md'
+        path=root/'.aiflow/state/logbook.md'
     else:
         raise ValueError('Tipo nota non valido')
     status=' [PROPOSTA NON APPROVATA]' if args.kind=='decision' else ''
@@ -475,6 +475,8 @@ def main(argv=None):
     args=parser().parse_args(argv)
     root=project_root()
     try:
+        if args.command != 'adopt' and (root / '.ai').exists():
+            raise ValueError('Legacy .ai directory detected: AIFlow v1.4.2 uses .aiflow. Back up and rename .ai to .aiflow before running commands; no automatic migration is performed.')
         if args.command == 'adopt':
             sys.path.insert(0,str(ROOT))
             from installer.v14 import adopt
@@ -510,7 +512,7 @@ def main(argv=None):
         elif args.command=='doctor':
             print('Progetto:',root,'\nDatabase:',db_path(root),'\nFramework:',ROOT)
             for key in ('AGENTS.md','project.md','architecture.md','state/current.md'):
-                print(('OK' if (root/'.ai'/key).exists() else 'MISSING'),key)
+                print(('OK' if (root/'.aiflow'/key).exists() else 'MISSING'),key)
         elif args.command=='epic':
             if args.action=='create': create_epic(root,db,args)
             elif args.action=='status': set_status(root,db,'epic',args)
