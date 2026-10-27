@@ -56,6 +56,16 @@ class TestCLI(unittest.TestCase):
         self.assertIn('nodejs', self.run_cli('profile', 'list').stdout)
         self.assertIn('postgresql', self.run_cli('profile', 'available').stdout)
 
+    def test_profile_walkthrough_is_read_only_and_available_outside_project(self):
+        for slug in ('php-laravel', 'react', 'shadcn', 'tailwind', 'shopify-rest',
+                     'shopify-graphql', 'postgresql', 'mysql', 'nodejs'):
+            result = self.run_cli('profile', 'walkthrough', slug)
+            self.assertIn('AIFlow profile walkthrough:', result.stdout)
+            self.assertIn('##', result.stdout)
+        self.assertFalse((self.root / '.ai').exists())
+        bad = self.run_cli('profile', 'walkthrough', 'unknown', ok=False)
+        self.assertNotEqual(bad.returncode, 0)
+
     def test_unknown_profile_and_existing_project_preservation(self):
         import json
         bad = self.run_cli('init', '--profile', 'not-a-real-profile', ok=False)
