@@ -469,6 +469,7 @@ def main(argv=None):
     root=project_root()
     try:
         if args.command == 'adopt':
+            sys.path.insert(0,str(ROOT))
             from installer.v14 import adopt
             adopt(Path(args.path).expanduser().resolve() if args.path else root,args)
             return 0
@@ -479,9 +480,11 @@ def main(argv=None):
         if args.command=='init': init(root,db,args)
         elif args.command=='profile': profile_command(root,db,args)
         elif args.command=='day':
+            sys.path.insert(0,str(ROOT))
             from installer.v14 import day
             day(root,db,args)
         elif args.command=='tracker':
+            sys.path.insert(0,str(ROOT))
             from installer.tracker import tracker_command
             tracker_command(root,db,args)
         elif args.command=='status': show_status(db)
