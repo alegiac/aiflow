@@ -122,7 +122,7 @@ def execute():
             if staging.exists():shutil.rmtree(staging)
     print(f"Installato {tag} in {target}")
     print(f'Aggiungi al PATH: export PATH="{target}/bin:$PATH"')
-    print("I progetti (.ai/) non sono stati modificati.")
+    print("I progetti (.aiflow/) non sono stati modificati.")
     print("Dopo upgrade, dentro ogni progetto: aiflow integrate both")
 if __name__=="__main__":
     try:execute()
