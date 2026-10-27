@@ -24,7 +24,7 @@ class TestWorkflows(unittest.TestCase):
         self.run_cli('approve','EPIC-001','requirements','--by','user','--evidence','Approved requirements')
         self.run_cli('checkpoint','EPIC-001','Analysis complete','--next','Create tasks')
         self.assertIn('Analysis complete',self.run_cli('recover').stdout)
-        self.assertIn('APPROVATA',(self.root/'.ai/epics/EPIC-001/decisions.md').read_text())
+        self.assertIn('APPROVATA',(self.root/'.aiflow/epics/EPIC-001/decisions.md').read_text())
     def test_lifecycle_guards(self):
         self.run_cli('epic','create','Orders')
         self.run_cli('task','create','EPIC-001','Import')
