@@ -63,7 +63,7 @@ try:
     if not link.exists() and not link.is_symlink():link.symlink_to(target/"bin/aiflow")
     print("Installed in",target)
     print('Add to PATH if needed: export PATH="$HOME/.local/bin:$PATH"')
-    print("Project .ai/ directories were not modified.")
+    print("Project .aiflow/ directories were not modified.")
 except Exception as e:
     print("AIFlow installation failed:",e,file=sys.stderr)
     sys.exit(1)
