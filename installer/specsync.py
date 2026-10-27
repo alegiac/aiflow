@@ -51,6 +51,26 @@ def sync(root, db):
             marker='<!-- aiflow:task:'+epic+'/'+task+' -->'
             if _append_once(ai/'epics'/epic/'epic.md',marker,marker+'\n- '+task+': '+tt+' ['+ts+']'):
                 updated.append(str(ai/'epics'/epic/'epic.md'))
+    project=ai/'project.md'
+    begin='<!-- aiflow:inventory:start -->'
+    end='<!-- aiflow:inventory:end -->'
+    inventory=['## AIFlow tracked scope','']
+    for eid,title,status in epics:
+        inventory.append('- '+eid+': '+title+' ['+status+']')
+        for tid,tt,ts in db.execute('SELECT id,title,status FROM tasks WHERE epic_id=? ORDER BY id',(eid,)):
+            inventory.append('  - '+tid+': '+tt+' ['+ts+']')
+    if project.exists():
+        original=project.read_text(encoding='utf-8')
+        block=begin+'\\n'+'\\n'.join(inventory)+'\\n'+end
+        if begin in original and end in original:
+            prefix=original.split(begin,1)[0]
+            suffix=original.split(end,1)[1]
+            refreshed=prefix+block+suffix
+        else:
+            refreshed=original.rstrip()+'\\n\\n'+block+'\\n'
+        if refreshed!=original:
+            project.write_text(refreshed,encoding='utf-8')
+            updated.append(str(project))
     # Append a timestamped state snapshot without replacing user-authored notes.
     current=ai/'state'/'current.md'
     snapshot=['## AIFlow snapshot '+_stamp(),'','### Epics']
