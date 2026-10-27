@@ -56,7 +56,7 @@ def day(root, db, args):
     updated=specsync.sync(root,db)
     checkpoint_path=root/'.ai'/'state'/'checkpoints.md'
     with checkpoint_path.open('a',encoding='utf-8') as f:
-        f.write('\\n## Day '+date+' — '+now+'\\n\\n'+summary+'\\n\\nNext: '+next_step+'\\n')
+        f.write('\n## Day '+date+' — '+now+'\n\n'+summary+'\n\nNext: '+next_step+'\n')
     result = dict(date=date,updated_specs=len(updated),session_id=row[0] if row else None,stopped_activity=active[0] if active else None,summary=summary)
     if args.json: print(json.dumps(result,ensure_ascii=False,indent=2))
     else: print('AIFlow day end:',date,'\n',summary)
@@ -126,5 +126,5 @@ def adopt(root, args):
     report_path.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     review=root/'.ai'/'adoption-review.md'
     lines=['# Adoption review (not approved)','', '## Evidence', *('- '+e for e in evidence),'','## Recent commits',*('- '+c for c in history.splitlines()),'','## Conversation candidates (unverified)',*('- '+p['excerpt'] for p in proposals),'','Review and explicitly approve before creating epics/tasks or accepting decisions.']
-    review.write_text('\\n'.join(lines)+'\\n',encoding='utf-8')
+    review.write_text('\n'.join(lines)+'\n',encoding='utf-8')
     print('Adoption report:',report_path,'\nReview findings before approving any decisions.')
