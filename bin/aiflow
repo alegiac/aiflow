@@ -402,4 +402,9 @@ def main(argv=None):
     except (ValueError,sqlite3.IntegrityError,FileExistsError) as e:
         print('Errore:',e,file=sys.stderr); return 2
 
-if __name__=='__main__': sys.exit(main())
+if __name__=='__main__':
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print("\nOperazione interrotta.")
+        sys.exit(130)
