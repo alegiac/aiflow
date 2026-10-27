@@ -49,3 +49,19 @@ class TestV14(unittest.TestCase):
     def test_tracker_is_not_exposed(self):
         self.cli('init')
         self.assertNotIn('tracker',self.cli('--help').stdout)
+
+    def test_specs_are_markdown_backed_and_sync_is_idempotent(self):
+        self.cli('init')
+        self.cli('specs','propose','epic','Billing')
+        self.cli('specs','propose','task','Invoice PDF','--epic','EPIC-001')
+        epic=self.root/'.ai/epics/EPIC-001/epic.md'
+        task=self.root/'.ai/epics/EPIC-001/tasks/TASK-001/task.md'
+        self.assertTrue(epic.exists())
+        self.assertTrue(task.exists())
+        self.cli('specs','sync')
+        self.cli('specs','sync')
+        self.assertEqual((self.root/'.ai/project.md').read_text().count('<!-- aiflow:epic:EPIC-001 -->'),1)
+        self.assertEqual(epic.read_text().count('<!-- aiflow:task:EPIC-001/TASK-001 -->'),1)
+        self.cli('day','start')
+        self.cli('day','end','--summary','Done','--next','Next task')
+        self.assertIn('Done',(self.root/'.ai/state/checkpoints.md').read_text())
