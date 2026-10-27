@@ -8,7 +8,7 @@ description: Mostra l’aiuto contestuale AIFlow quando l’utente scrive «aifl
 Quando l’utente scrive **`aiflow?`**, **`ai flow?`**, **`help aiflow`**, **`cosa posso fare con aiflow`**, o invoca esplicitamente questa skill, mostra subito lo specchietto qui sotto. Non avviare analisi, Epic, Task o sessioni per rispondere all’help. Non chiedere autorizzazioni solo per mostrare aiuto.
 
 ## Prima di rispondere
-- Se sei nella radice di un progetto AIFlow, esegui `aiflow status` (sola lettura) per contestualizzare. Se disponibile, leggi `.ai/state/current.md` per identificare Epic, Task e sessione correnti. Non presumere stati o comandi supportati.
+- Se sei nella radice di un progetto AIFlow, esegui `aiflow status` (sola lettura) per contestualizzare. Se disponibile, leggi `.aiflow/state/current.md` per identificare Epic, Task e sessione correnti. Non presumere stati o comandi supportati.
 - Se la CLI non è disponibile, mostra comunque l’help generale e spiega brevemente che lo stato non è verificabile.
 - Usa `aiflow --help` per verificare la sintassi effettiva prima di suggerire comandi terminale. Per richieste in linguaggio naturale, l’agente può tradurre l’intento in comandi CLI esistenti.
 
