@@ -483,8 +483,6 @@ def main(argv=None):
     args=parser().parse_args(argv)
     root=project_root()
     try:
-        if args.command != 'adopt' and (root / '.ai').exists():
-            raise ValueError('Legacy .ai directory detected: AIFlow v1.4.2 uses .aiflow. Back up and rename .ai to .aiflow before running commands; no automatic migration is performed.')
         if args.command == 'adopt':
             sys.path.insert(0,str(ROOT))
             from installer.v14 import adopt
