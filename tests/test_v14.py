@@ -19,6 +19,27 @@ class TestV14(unittest.TestCase):
         p=subprocess.run([sys.executable,str(CLI),*args],cwd=self.root,env=env,text=True,capture_output=True)
         if ok:self.assertEqual(p.returncode,0,p.stderr)
         return p
+    def test_unrelated_ai_directory_is_preserved_during_init(self):
+        legacy=self.root/'.ai'
+        legacy.mkdir()
+        (legacy/'notes.txt').write_text('legacy project content')
+        self.cli('init')
+        self.cli('status')
+        self.cli('day','start')
+        self.cli('day','end','--no-digest')
+        self.assertEqual((legacy/'notes.txt').read_text(),'legacy project content')
+        self.assertTrue((self.root/'.aiflow/state/aiflow.sqlite3').exists())
+
+    def test_unrelated_ai_directory_is_preserved_during_adopt(self):
+        legacy=self.root/'.ai'
+        legacy.mkdir()
+        (legacy/'notes.txt').write_text('external data')
+        (self.root/'composer.json').write_text('{"require":{"laravel/framework":"^13.0"}}')
+        self.cli('adopt')
+        self.cli('adopt','--apply')
+        self.assertEqual((legacy/'notes.txt').read_text(),'external data')
+        self.assertTrue((self.root/'.aiflow/adoption-review.json').exists())
+
     def test_daily_resume_and_checkpoint(self):
         self.cli('init')
         first=json.loads(self.cli('day','start','--json').stdout)

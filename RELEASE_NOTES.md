@@ -1,3 +1,8 @@
+## v1.5.2 — Allow unrelated .ai directories
+
+- Removed unconditional legacy `.ai/` blocking from CLI and project adoption. AIFlow operates only in `.aiflow/` and leaves pre-existing unrelated `.ai/` content untouched.
+- Added regression tests for initialization, normal daily workflow and adoption with `.ai/` present.
+
 ## v1.5.1 — Digest CLI and already-closed day fix
 
 - `aiflow digest` supports `--date`, `--format html`, `--send`, `--force-send`, `--json`.
