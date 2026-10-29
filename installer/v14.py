@@ -130,8 +130,12 @@ def adopt(root, args):
             if len(stripped)>20 and re.search(r'(?i)\\b(todo|task|epic|decision|deciso|implementare|fixme|bug)\\b',stripped):
                 proposals.append(dict(source='conversation:'+file.name,excerpt=stripped[:300],status='needs-review'))
                 if len(proposals)>=100: break
-        conversation=dict(path=str(file),characters=len(raw),sha256=hashlib.sha256(raw.encode()).hexdigest(),review_candidates=len(proposals))
-    report=dict(project=str(root),branch=branch,top_level=names[:100],profiles=detected,evidence=evidence,recent_commits=history.splitlines(),conversation=conversation,proposals=proposals,warning='Inferred facts need human review; conversation is not automatically imported from provider private history')
+        conversation=dict(path=(file.relative_to(root).as_posix() if file.is_relative_to(root) else file.name),characters=len(raw),sha256=hashlib.sha256(raw.encode()).hexdigest(),review_candidates=len(proposals))
+    report=dict(project='.',branch=branch,top_level=names[:100],profiles=detected,evidence=evidence,recent_commits=history.splitlines(),conversation=conversation,proposals=proposals,warning='Inferred facts need human review; conversation is not automatically imported from provider private history')
+    from installer import adoption_docs
+    report['documents']=adoption_docs.scan(root)
+    report['document_policy']='Project Markdown is authoritative; preserve originals by default. Review proposed merges and choose whether to relocate source documents separately.'
+    report=json.loads(adoption_docs._safe_text(root,json.dumps(report,ensure_ascii=False)))
     if not args.apply:
         print(json.dumps(report,ensure_ascii=False,indent=2))
         print('DRY RUN: no files changed. Use --apply to initialize and write a review report.')
@@ -152,8 +156,9 @@ def adopt(root, args):
     report_path=root/'.aiflow'/'adoption-review.json'
     if initialized and (report_path.exists() or (root/'.aiflow'/'adoption-review.md').exists()):
         raise ValueError('Existing adoption review found: refusing to overwrite it; archive the review before retrying')
+    report['merged_documents']=adoption_docs.merge(root,report['documents'])
     report_path.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     review=root/'.aiflow'/'adoption-review.md'
-    lines=['# Adoption review (not approved)','', '## Evidence', *('- '+e for e in evidence),'','## Recent commits',*('- '+c for c in history.splitlines()),'','## Conversation candidates (unverified)',*('- '+p['excerpt'] for p in proposals),'','Review and explicitly approve before creating epics/tasks or accepting decisions.']
+    lines=['# Adoption review (not approved)','', '## Documents', *('- '+d['source']+' → '+d['target']+' ('+d['recommendation']+')' for d in report['documents']), '', '## Evidence', *('- '+e for e in evidence),'','## Recent commits',*('- '+c for c in history.splitlines()),'','## Conversation candidates (unverified)',*('- '+p['excerpt'] for p in proposals),'','Review and explicitly approve before creating epics/tasks or accepting decisions.']
     review.write_text('\n'.join(lines)+'\n',encoding='utf-8')
     print('Adoption report:',report_path,'\nReview findings before approving any decisions.')

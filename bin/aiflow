@@ -110,7 +110,8 @@ def init(root, db, args):
         write_new(cfg, json.dumps({'framework_version':'1.0.0','profile':profiles[0],'profiles':profiles,'agent':'unconfigured'},indent=2)+'\n')
     data, configured = read_project_profiles(root)
     sync_project_profiles(root, configured)
-    event(db,'project.init',str(root),','.join(configured))
+    event(db,'project.init','.',','.join(configured))
+    db.commit()
     print(f'Inizializzato: {root} (profili {", ".join(configured)})')
 
 
