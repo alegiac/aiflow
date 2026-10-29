@@ -135,6 +135,7 @@ def adopt(root, args):
     from installer import adoption_docs
     report['documents']=adoption_docs.scan(root)
     report['document_policy']='Project Markdown is authoritative; preserve originals by default. Review proposed merges and choose whether to relocate source documents separately.'
+    report=json.loads(adoption_docs._safe_text(root,json.dumps(report,ensure_ascii=False)))
     if not args.apply:
         print(json.dumps(report,ensure_ascii=False,indent=2))
         print('DRY RUN: no files changed. Use --apply to initialize and write a review report.')
