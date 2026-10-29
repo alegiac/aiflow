@@ -40,6 +40,34 @@ class TestV14(unittest.TestCase):
         self.assertEqual((legacy/'notes.txt').read_text(),'external data')
         self.assertTrue((self.root/'.aiflow/adoption-review.json').exists())
 
+    def test_adoption_is_portable_and_merges_existing_guidance(self):
+        (self.root/'AGENTS.md').write_text('# Existing rules\n\nUse PostgreSQL.\n')
+        (self.root/'README.md').write_text('# Existing project\n\nBusiness goal is billing.\n')
+        (self.root/'architecture.md').write_text('# Design\n\nPostgreSQL is required.\n')
+        preview=json.loads(self.cli('adopt').stdout.split('DRY RUN:')[0])
+        self.assertEqual(preview['project'],'.')
+        self.assertTrue(any(d['source']=='AGENTS.md' for d in preview['documents']))
+        self.cli('adopt','--apply')
+        ai=self.root/'.aiflow'
+        self.assertIn('Use PostgreSQL.',(ai/'AGENTS.md').read_text())
+        self.assertIn('Business goal is billing.',(ai/'project.md').read_text())
+        self.assertIn('PostgreSQL is required.',(ai/'architecture.md').read_text())
+        self.assertTrue((self.root/'AGENTS.md').exists())
+        self.assertNotIn(str(self.root),(ai/'adoption-review.json').read_text())
+        import sqlite3
+        with sqlite3.connect(ai/'state/aiflow.sqlite3') as db:
+            self.assertEqual(db.execute("SELECT ref FROM events WHERE kind='project.init'").fetchone()[0],'.')
+
+    def test_adoption_sanitizes_local_paths_and_ignores_ai(self):
+        (self.root/'.ai').mkdir()
+        (self.root/'.ai'/'AGENTS.md').write_text('Should not import')
+        (self.root/'AGENTS.md').write_text('Home /Users/privateuser/work/project and '+str(self.root))
+        self.cli('adopt','--apply')
+        adopted=(self.root/'.aiflow/AGENTS.md').read_text()
+        self.assertNotIn('/Users/privateuser',adopted)
+        self.assertNotIn(str(self.root),adopted)
+        self.assertNotIn('Should not import',adopted)
+
     def test_daily_resume_and_checkpoint(self):
         self.cli('init')
         first=json.loads(self.cli('day','start','--json').stdout)
